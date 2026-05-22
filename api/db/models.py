@@ -24,6 +24,12 @@ class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
 
 
+class Gender(str, enum.Enum):
+    MALE = "Male"
+    FEMALE = "Female"
+    OTHER = "Other"
+
+
 class UserModel(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -39,7 +45,7 @@ class UserModel(Base):
     )
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     date_of_birth: Mapped[date] = mapped_column(nullable=False)
-    gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    gender: Mapped[Gender] = mapped_column(Enum(Gender), nullable=False)
     residential_address: Mapped[str] = mapped_column(String(500), nullable=False)
     current_address: Mapped[str] = mapped_column(String(500), nullable=False)
     timezone: Mapped[str] = mapped_column(String(50), default="UTC", nullable=False)

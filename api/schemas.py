@@ -1,9 +1,10 @@
 from datetime import date
 from typing import Optional
+from zoneinfo import available_timezones
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from db.models import UserRole
+from db.models import Gender, UserRole
 
 
 class UserCreateRequest(BaseModel):
@@ -17,7 +18,7 @@ class UserCreateRequest(BaseModel):
     personal_email: EmailStr = Field(..., description="Unique personal email")
     phone: str = Field(..., min_length=4, max_length=20, description="Contact Number")
     date_of_birth: date = Field(..., description="Date of birth in YYYY-MM-DD format")
-    gender: Optional[str] = Field(None, max_length=20, description="Gender identity")
+    gender: Gender = Field(None, max_length=20, description="Gender identity")
     residential_address: str = Field(
         ..., min_length=5, max_length=500, description="Permanent home address"
     )
@@ -25,10 +26,18 @@ class UserCreateRequest(BaseModel):
         ..., min_length=5, max_length=500, description="Current address"
     )
     timezone: str = Field(
-        default="UTC",
-        max_length=50,
+        ...,
         description="Standard IANA timezone string (e.g.,'Asia/Kolkata')",
     )
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_iana_timezone(cls, v: str) -> str:
+        if v not in available_timezones():
+            raise ValueError(
+                f"'{v}' is not a valid IANA timezone. Please provide a standard value like 'Asia/Kolkata' or 'UTC'."
+            )
+
     emergency_contact_name: str = Field(
         ...,
         min_length=1,
