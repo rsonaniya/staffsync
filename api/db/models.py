@@ -2,8 +2,8 @@ from datetime import date, datetime
 import enum
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
 
@@ -28,6 +28,11 @@ class Gender(str, enum.Enum):
     MALE = "Male"
     FEMALE = "Female"
     OTHER = "Other"
+
+
+class CreditFrequency(str, enum.Enum):
+    YEARLY_UPFRONT = "YEARLY_UPFRONT"
+    MONTHLY_ACCRUAL = "MONTHLY_ACCRUAL"
 
 
 class UserModel(Base):
@@ -72,3 +77,54 @@ class UserModel(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class LeaveTypeModel(Base):
+    __tablename__ = "leave_types"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+    code: Mapped[str] = mapped_column(
+        String(5), unique=True, index=True, nullable=False
+    )
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class LeavePolicyModel(Base):
+    __tablename__ = "leave_policies"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(
+        String(100), unique=True, index=True, nullable=False
+    )
+    description: Mapped[Optional[str]] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(default=True)
+    rules: Mapped[list["LeavePolicyRuleModel"]] = relationship(
+        back_populates="policy", cascade="all,delete-orphan"
+    )
+
+
+class LeavePolicyRuleModel(Base):
+    __tablename__ = "leave_policy_rules"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    leave_policy_id: Mapped[int] = mapped_column(
+        ForeignKey("leave_policies.id", ondelete="CASCADE"), nullable=False
+    )
+    leave_type_id: Mapped[int] = mapped_column(
+        ForeignKey("leave_types.id", ondelete="CASCADE"), nullable=False
+    )
+    allowance: Mapped[float] = mapped_column(nullable=False)
+    credit_frequency: Mapped[CreditFrequency] = mapped_column(
+        Enum(CreditFrequency),
+        nullable=False,
+        default=CreditFrequency.MONTHLY_ACCRUAL,
+    )
+    is_paid: Mapped[bool] = mapped_column(default=True, nullable=False)
+    __table_args__ = (
+        UniqueConstraint(
+            "leave_policy_id", "leave_type_id", name="_policy_leave_type_uc"
+        ),
+    )
+    policy: Mapped["LeavePolicyModel"] = relationship(back_populates="rules")
+    leave_type: Mapped["LeaveTypeModel"] = relationship()

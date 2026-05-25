@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -18,6 +18,7 @@ import {
   ArrowBack,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import PersonalDetailsStep from "./PersonalDetailsStep";
 
 // ==========================================
 // 1. TYPES & STYLES
@@ -42,7 +43,7 @@ export default function AddEmployeeWizard() {
   const navigate = useNavigate();
 
   const handleAddNewEmployee = () => {
-    // form submission logic
+    // Final form submission logic
     navigate("/employees");
   };
 
@@ -51,12 +52,21 @@ export default function AddEmployeeWizard() {
       ? handleAddNewEmployee()
       : setActiveStep((prev) => Math.min(prev + 1, steps.length - 1));
   };
+
   const handleBack = () => setActiveStep((prev) => Math.max(prev - 1, 0));
 
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
-        return <PersonalDetailsStep />;
+        return (
+          <PersonalDetailsStep
+            onStepSubmit={(data: any) => {
+              console.log("Validated Step 1 Data:", data);
+              // Move to the next step ONLY after successful validation
+              setActiveStep(1);
+            }}
+          />
+        );
       case 1:
         return <EmploymentDetailsStep />;
       case 2:
@@ -71,13 +81,17 @@ export default function AddEmployeeWizard() {
   return (
     <Box
       sx={{
+        display: "flex",
+        flexDirection: "column",
+        // PERFECT LAYOUT FIX: Push down by TopNav height, subtract it from 100vh
+        marginTop: "64px",
+        height: "calc(100vh - 64px)",
         width: "100%",
         px: { xs: 2, md: 4, lg: 5 },
-        pb: 4,
-        pt: { xs: 10, md: 12 },
+        pt: 4, // Inner padding to give the title breathing room
       }}
     >
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 4, flexShrink: 0 }}>
         <Typography
           variant="h4"
           sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}
@@ -92,7 +106,11 @@ export default function AddEmployeeWizard() {
       {/* Stepper */}
       <Stepper
         activeStep={activeStep}
-        sx={{ mb: 5, "& .MuiStepLabel-label": { fontWeight: 600 } }}
+        sx={{
+          mb: 4,
+          flexShrink: 0,
+          "& .MuiStepLabel-label": { fontWeight: 600 },
+        }}
       >
         {steps.map((label) => (
           <Step key={label}>
@@ -101,17 +119,24 @@ export default function AddEmployeeWizard() {
         ))}
       </Stepper>
 
-      {/* Form Content */}
-      <Box sx={{ minHeight: 400 }}>{renderStepContent(activeStep)}</Box>
+      {/* Scrollable Form Content Area */}
+      <Box sx={{ flex: 1, overflowY: "auto", px: 0.5, pb: 4 }}>
+        {renderStepContent(activeStep)}
+      </Box>
 
-      {/* Navigation Footer */}
+      {/* Sticky Navigation Footer */}
       <Stack
         sx={{
           flexDirection: "row",
           justifyContent: "space-between",
-          mt: 4,
+          mt: "auto", // Forces the footer to the absolute bottom of the flex container
           pt: 2,
+          pb: 3, // Slightly larger bottom padding so buttons aren't riding the exact pixel edge
           borderTop: "1px solid rgba(195, 198, 214, 0.5)",
+          backgroundColor: "#f8f9fb",
+          position: "sticky",
+          bottom: 0,
+          zIndex: 10,
         }}
       >
         <Button
@@ -126,7 +151,9 @@ export default function AddEmployeeWizard() {
         <Button
           variant="contained"
           disableElevation
-          onClick={handleNext}
+          type={activeStep === 0 ? "submit" : "button"}
+          form={activeStep === 0 ? "personal-details-form" : undefined}
+          onClick={activeStep === 0 ? undefined : handleNext}
           endIcon={activeStep === steps.length - 1 ? null : <ArrowForward />}
           sx={{
             backgroundColor: "#003d9b",
@@ -144,81 +171,8 @@ export default function AddEmployeeWizard() {
 }
 
 // ==========================================
-// 3. STEP COMPONENTS
+// 3. STEP COMPONENTS (Grid Errors Fixed!)
 // ==========================================
-
-function PersonalDetailsStep() {
-  return (
-    <Grid container spacing={3}>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="First Name"
-          slotProps={{ input: { sx: inputStyles } }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Last Name"
-          slotProps={{ input: { sx: inputStyles } }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Email Address"
-          slotProps={{ input: { sx: inputStyles } }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Phone Number"
-          slotProps={{ input: { sx: inputStyles } }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Date of Birth"
-          type="date"
-          slotProps={{
-            input: { sx: inputStyles },
-            inputLabel: { shrink: true },
-          }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Gender"
-          select
-          slotProps={{ input: { sx: inputStyles } }}
-        >
-          <MenuItem value="m">Male</MenuItem>
-          <MenuItem value="f">Female</MenuItem>
-        </TextField>
-      </Grid>
-      <Grid size={{ xs: 12 }}>
-        <TextField
-          fullWidth
-          variant="filled"
-          label="Residential Address"
-          multiline
-          rows={3}
-          slotProps={{ input: { sx: inputStyles } }}
-        />
-      </Grid>
-    </Grid>
-  );
-}
 
 function EmploymentDetailsStep() {
   return (
