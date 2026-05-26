@@ -5,7 +5,7 @@ from zoneinfo import available_timezones
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from db.models import CreditFrequency, Gender, UserRole
+from db.models import CreditFrequency, EmploymentType, Gender, UserRole
 
 
 class UserCreateRequest(BaseModel):
@@ -153,3 +153,94 @@ class LeavePolicyRuleCreateRequest(BaseModel):
 
 class LeavePolicyRuleResponse(LeavePolicyRuleCreateRequest):
     id: int
+
+
+class UserEmploymentDetailsCreateRequest(BaseModel):
+    department: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        description="Department Name (e.g.,'Sales')",
+    )
+    designation: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        description="Designation Name (e.g.,'Frontend Developer')",
+    )
+    employment_type: EmploymentType = Field(..., description="Employment Type Enum")
+    reporting_manager_id: Optional[int] = Field(
+        None, description="Reporting manager for the user (Optional)"
+    )
+    joining_date: date = Field(..., description="joining date in YYYY-MM-DD format")
+    probation_period_months: Optional[int] = Field(
+        0, ge=0, description="Users probabion period"
+    )
+    leave_policy_id: int = Field(..., description="A valid Leave policy ID")
+    model_config = {"from_attributes": True}
+
+
+class UserEmploymentDetailsResponse(UserEmploymentDetailsCreateRequest):
+    id: int
+    user_id: int
+
+
+class UserPayrollAndBankCreateRequest(BaseModel):
+    annual_ctc: float = Field(..., ge=0, description="Users Total annual CTC")
+    basic_salary: float = Field(
+        ..., ge=0, description="Users Total annual basic salary"
+    )
+    hra: float = Field(..., ge=0, description="Users Total annual HRA")
+    special_allowance: float = Field(
+        ..., ge=0, description="Users Total annual special allowances"
+    )
+    currency: Optional[str] = Field("INR", description="Users Currency")
+    bank_name: str = Field(
+        ...,
+        min_length=2,
+        max_length=250,
+        description="Users bank Name (e.g,'SBI')",
+    )
+    account_number: str = Field(
+        ...,
+        min_length=2,
+        max_length=50,
+        description="Users bank Account number",
+    )
+    ifsc: str = Field(
+        ...,
+        min_length=11,
+        max_length=11,
+        description="Users bank Account IFSC Code",
+    )
+    account_holder_name: Optional[str] = Field(
+        None,
+        min_length=2,
+        max_length=50,
+        description="Users bank Account name",
+    )
+    pan_number: Optional[str] = Field(
+        None,
+        min_length=10,
+        max_length=10,
+        description="Users PAN number",
+    )
+    aadhaar_number: Optional[str] = Field(
+        None,
+        min_length=12,
+        max_length=12,
+        description="Users bank Aadhaar Number",
+    )
+    uan_number: Optional[str] = Field(
+        None,
+        min_length=12,
+        max_length=12,
+        description="Users EPFO UAN number",
+    )
+    model_config = {"from_attributes": True}
+
+
+class UserPayrollAndBankCreateResponse(UserPayrollAndBankCreateRequest):
+    id: int
+    user_id: int
+    currency: str

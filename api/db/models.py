@@ -2,6 +2,7 @@ from datetime import date, datetime
 import enum
 from typing import Optional
 
+from pydantic import BaseModel
 from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +34,14 @@ class Gender(str, enum.Enum):
 class CreditFrequency(str, enum.Enum):
     YEARLY_UPFRONT = "YEARLY_UPFRONT"
     MONTHLY_ACCRUAL = "MONTHLY_ACCRUAL"
+
+
+class EmploymentType(str, enum.Enum):
+    FULL_TIME = "FULL_TIME"
+    PART_TIME = "PART_TIME"
+    CONTRACT = "CONTRACT"
+    INTERN = "INTERN"
+    PROBATION = "PROBATION"
 
 
 class UserModel(Base):
@@ -77,6 +86,12 @@ class UserModel(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    employment_details: Mapped[Optional["UserEmploymentDetailsModel"]] = relationship(
+        back_populates="user", foreign_keys="UserEmploymentDetailsModel.user_id"
+    )
+    payroll_details: Mapped[Optional["UserPayrollAndBankModel"]] = relationship(
+        back_populates="user", foreign_keys="UserPayrollAndBankModel.user_id"
+    )
 
 
 class LeaveTypeModel(Base):
@@ -103,6 +118,9 @@ class LeavePolicyModel(Base):
     rules: Mapped[list["LeavePolicyRuleModel"]] = relationship(
         back_populates="policy", cascade="all,delete-orphan"
     )
+    employees: Mapped[list["UserEmploymentDetailsModel"]] = relationship(
+        back_populates="leave_policy"
+    )
 
 
 class LeavePolicyRuleModel(Base):
@@ -128,3 +146,43 @@ class LeavePolicyRuleModel(Base):
     )
     policy: Mapped["LeavePolicyModel"] = relationship(back_populates="rules")
     leave_type: Mapped["LeaveTypeModel"] = relationship()
+
+
+class UserEmploymentDetailsModel(Base):
+    __tablename__ = "user_employment_details"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    department: Mapped[str]
+    designation: Mapped[str]
+    employment_type: Mapped[EmploymentType] = mapped_column(
+        Enum(EmploymentType), nullable=False
+    )
+    reporting_manager_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"))
+    joining_date: Mapped[date]
+    probation_period_months: Mapped[int] = mapped_column(default=0)
+    leave_policy_id: Mapped[int] = mapped_column(ForeignKey("leave_policies.id"))
+    user: Mapped["UserModel"] = relationship(
+        back_populates="employment_details", foreign_keys=[user_id]
+    )
+    leave_policy: Mapped["LeavePolicyModel"] = relationship(back_populates="employees")
+
+
+class UserPayrollAndBankModel(Base):
+    __tablename__ = "user_payroll_and_bank"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    annual_ctc: Mapped[float]
+    basic_salary: Mapped[float]
+    hra: Mapped[float]
+    special_allowance: Mapped[float]
+    currency: Mapped[str] = mapped_column(default="INR")
+    bank_name: Mapped[str]
+    account_number: Mapped[str]
+    ifsc: Mapped[str]
+    account_holder_name: Mapped[Optional[str]] = mapped_column(nullable=True)
+    pan_number: Mapped[Optional[str]] = mapped_column(nullable=True)
+    aadhaar_number: Mapped[Optional[str]] = mapped_column(nullable=True)
+    uan_number: Mapped[Optional[str]] = mapped_column(nullable=True)
+    user: Mapped["UserModel"] = relationship(
+        back_populates="payroll_details", foreign_keys=[user_id]
+    )

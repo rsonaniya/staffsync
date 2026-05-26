@@ -4,8 +4,12 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from db.hash_password import HashPassword
-from db.models import UserModel
-from schemas import UserCreateRequest
+from db.models import UserEmploymentDetailsModel, UserModel, UserPayrollAndBankModel
+from schemas import (
+    UserCreateRequest,
+    UserEmploymentDetailsCreateRequest,
+    UserPayrollAndBankCreateRequest,
+)
 
 
 def create_db_user(request: UserCreateRequest, db: Session):
@@ -65,3 +69,66 @@ def create_db_user(request: UserCreateRequest, db: Session):
 
 def get_db_user_by_email(email: str, db: Session) -> UserModel | None:
     return db.query(UserModel).filter(UserModel.email == email).first()
+
+
+def get_db_user_by_userid(id: int, db: Session) -> UserModel | None:
+    return db.query(UserModel).filter(UserModel.id == id).first()
+
+
+def get_db_user_emp_details_by_userid(user_id: int, db: Session):
+    return (
+        db.query(UserEmploymentDetailsModel)
+        .filter(UserEmploymentDetailsModel.user_id == user_id)
+        .first()
+    )
+
+
+def create_db_user_emp_details(
+    id: int, request: UserEmploymentDetailsCreateRequest, db: Session
+):
+    new_user_emp_details = UserEmploymentDetailsModel(
+        department=request.department,
+        designation=request.designation,
+        employment_type=request.employment_type,
+        reporting_manager_id=request.reporting_manager_id,
+        joining_date=request.joining_date,
+        probation_period_months=request.probation_period_months,
+        leave_policy_id=request.leave_policy_id,
+        user_id=id,
+    )
+    db.add(new_user_emp_details)
+    db.commit()
+    db.refresh(new_user_emp_details)
+    return new_user_emp_details
+
+
+def get_db_user_payroll_bank_by_userid(user_id: int, db: Session):
+    return (
+        db.query(UserPayrollAndBankModel)
+        .filter(UserPayrollAndBankModel.user_id == user_id)
+        .first()
+    )
+
+
+def create_db_user_payroll_bank_details(
+    id: int, request: UserPayrollAndBankCreateRequest, db: Session
+):
+    new_user_payroll_bank_details = UserPayrollAndBankModel(
+        annual_ctc=request.annual_ctc,
+        basic_salary=request.basic_salary,
+        hra=request.hra,
+        special_allowance=request.special_allowance,
+        currency=request.currency,
+        bank_name=request.bank_name,
+        account_number=request.account_number,
+        ifsc=request.ifsc,
+        account_holder_name=request.account_holder_name,
+        pan_number=request.pan_number,
+        aadhaar_number=request.aadhaar_number,
+        uan_number=request.uan_number,
+        user_id=id,
+    )
+    db.add(new_user_payroll_bank_details)
+    db.commit()
+    db.refresh(new_user_payroll_bank_details)
+    return new_user_payroll_bank_details

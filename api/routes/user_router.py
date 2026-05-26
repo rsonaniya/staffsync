@@ -1,15 +1,29 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from auth.oauth2 import get_current_user
 from auth.security import verify_onboarding_permissions
 from db.database import get_db
-from db.db_user import create_db_user
+from db.db_leave_policy import get_db_leave_policy_by_id
+from db.db_user import (
+    create_db_user,
+    create_db_user_emp_details,
+    create_db_user_payroll_bank_details,
+    get_db_user_by_userid,
+    get_db_user_emp_details_by_userid,
+    get_db_user_payroll_bank_by_userid,
+)
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel, UserRole
-from schemas import UserCreateRequest
+from schemas import (
+    UserCreateRequest,
+    UserEmploymentDetailsCreateRequest,
+    UserEmploymentDetailsResponse,
+    UserPayrollAndBankCreateRequest,
+    UserPayrollAndBankCreateResponse,
+)
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -53,6 +67,7 @@ def create_exp_user(
     return new_user
 
 
+# Step 1 data creation for user
 @router.post("/")
 def create_user(
     request: UserCreateRequest,
@@ -62,3 +77,76 @@ def create_user(
     verify_onboarding_permissions(current_user.role, request.role)
     user = create_db_user(request, db)
     return user  # i will define a reponse model in a moment
+
+
+# Step 2 data creation for user
+
+
+@router.post("/employment-details/{id}", response_model=UserEmploymentDetailsResponse)
+def create_user_emp_details(
+    id: int,
+    request: UserEmploymentDetailsCreateRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    existing_user = get_db_user_by_userid(id, db)
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, existing_user.role)
+
+    existing_emp_details = get_db_user_emp_details_by_userid(id, db)
+    if existing_emp_details:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Employment Details for the same user already present",
+        )
+    if request.reporting_manager_id:
+        if request.reporting_manager_id == id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user can not be the self manager",
+            )
+        existing_manager = get_db_user_by_userid(request.reporting_manager_id, db)
+        if not existing_manager or existing_manager.role == UserRole.EMPLOYEE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No Reporting Manager found with given reporting manager id",
+            )
+
+    current_leave_policy = get_db_leave_policy_by_id(request.leave_policy_id, db)
+    if not current_leave_policy or not current_leave_policy.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active leave policy found with given leave policy id",
+        )
+    existing_user.onboarding_step = 2
+    return create_db_user_emp_details(id, request, db)
+
+
+@router.post(
+    "/payroll-bank-details/{id}", response_model=UserPayrollAndBankCreateResponse
+)
+def create_user_payroll_bank_details(
+    id: int,
+    request: UserPayrollAndBankCreateRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    existing_user = get_db_user_by_userid(id, db)
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, existing_user.role)
+    existing_payroll_bank_details = get_db_user_payroll_bank_by_userid(id, db)
+    if existing_payroll_bank_details:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payroll and Bank Details for the same user already present",
+        )
+    existing_user.onboarding_step = 3
+    return create_db_user_payroll_bank_details(id, request, db)
