@@ -6,11 +6,13 @@ from sqlalchemy import or_
 from db.db_leave_policy_rule import get_db_leave_policy_rules_by_policy_id
 from db.hash_password import HashPassword
 from db.models import (
+    AccountStatus,
     UserDocumentsModel,
     UserEmploymentDetailsModel,
     UserLeaveBalanceModel,
     UserModel,
     UserPayrollAndBankModel,
+    UserRole,
 )
 from schemas import (
     UserCreateRequest,
@@ -184,3 +186,14 @@ def initialize_employee_leaves(db: Session, user_id: int, policy_id: int):
             calendar_year=current_year,
         )
         db.add(new_balance)
+
+
+def get_db_active_managers(db: Session):
+    return (
+        db.query(UserModel)
+        .filter(
+            UserModel.role != UserRole.EMPLOYEE,
+            UserModel.account_status == AccountStatus.ACTIVE,
+        )
+        .all()
+    )

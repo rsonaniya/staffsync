@@ -7,6 +7,7 @@ from fastapi import File, Form, UploadFile
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from db.models import (
+    AccountStatus,
     CreditFrequency,
     DocumentCategory,
     EmploymentType,
@@ -61,6 +62,35 @@ class UserCreateRequest(BaseModel):
     role: UserRole = Field(
         ..., description="System privileges tier allocated to the employee"
     )
+
+
+class UserResponse(BaseModel):
+    id: int
+    is_email_verified: bool
+    first_name: str
+    last_name: Optional[str]
+    email: str
+    personal_email: str
+    phone: str
+    date_of_birth: date
+    gender: Gender
+    residential_address: str
+    current_address: str
+    timezone: str
+    profile_image_url: Optional[str]
+    profile_image_public_id: Optional[str]
+    emergency_contact_name: str
+    emergency_contact_relationship: str
+    emergency_contact_phone: str
+    role: UserRole
+    account_status: AccountStatus
+    onboarding_step: int
+    model_config = {"from_attributes": True}
+
+    employment_details: Optional["UserEmploymentDetailsResponse"]
+    payroll_details: Optional["UserPayrollAndBankResponse"]
+    documents: Optional[list["UserDocumentInternal"]]
+    leave_balances: Optional[list["UserLeaveBalanceResponse"]]
 
 
 class LeaveTypeCreateRequest(BaseModel):
@@ -247,6 +277,10 @@ class UserPayrollAndBankCreateRequest(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserPayrollAndBankResponse(UserPayrollAndBankCreateRequest):
+    id: int
+
+
 class UserPayrollAndBankCreateResponse(UserPayrollAndBankCreateRequest):
     id: int
     user_id: int
@@ -286,6 +320,16 @@ class UserDocumentResponse(UserDocumentInternal):
     model_config = {"from_attributes": True}
 
 
+class UserLeaveBalanceResponse(BaseModel):
+    id: int
+    user_id: int
+    leave_type_id: int
+    allocated_days: float
+    used_days: float
+    available_balance: float
+    calendar_year: int
+
+
 class UserPasswordSetRequest(BaseModel):
     email: EmailStr = Field(
         ..., description="Email on which the password token is sent"
@@ -297,3 +341,11 @@ class UserPasswordSetRequest(BaseModel):
         max_length=14,
         description="New password between 8-14 characters",
     )
+
+
+class ManagerLookUpResponse(BaseModel):
+    id: int
+    first_name: str
+    last_name: Optional[str]
+    profile_image_url: Optional[str]
+    model_config = {"from_attributes": True}

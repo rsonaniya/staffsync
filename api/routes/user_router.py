@@ -13,6 +13,7 @@ from db.db_user import (
     create_db_user_document_staged,
     create_db_user_emp_details,
     create_db_user_payroll_bank_details,
+    get_db_active_managers,
     get_db_user_by_email,
     get_db_user_by_userid,
     get_db_user_emp_details_by_userid,
@@ -22,6 +23,7 @@ from db.db_user import (
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel, UserRole
 from schemas import (
+    ManagerLookUpResponse,
     UserCreateRequest,
     UserDocumentCreateRequest,
     UserDocumentInternal,
@@ -30,6 +32,7 @@ from schemas import (
     UserPasswordSetRequest,
     UserPayrollAndBankCreateRequest,
     UserPayrollAndBankCreateResponse,
+    UserResponse,
 )
 import cloudinary.uploader
 
@@ -78,7 +81,7 @@ def create_exp_user(
 
 
 # Step 1 data creation for user
-@router.post("/")
+@router.post("/", response_model=UserResponse)
 def create_user(
     request: UserCreateRequest,
     db=Depends(get_db),
@@ -86,10 +89,7 @@ def create_user(
 ):
     verify_onboarding_permissions(current_user.role, request.role)
     user = create_db_user(request, db)
-    return user  # i will define a reponse model in a moment
-
-
-# Step 2 data creation for user
+    return user
 
 
 @router.post("/employment-details/{id}", response_model=UserEmploymentDetailsResponse)
@@ -269,3 +269,10 @@ def create_user_password(request: UserPasswordSetRequest, db=Depends(get_db)):
     db.commit()
     return {"message": "Password has been set successfully and Account Activated"}
     # TODO: Create Leave Balance data in LeaveBalance model once Model is created
+
+
+@router.get("/manager-lookup", response_model=list[ManagerLookUpResponse])
+def get_namager_list(
+    db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    return get_db_active_managers(db)

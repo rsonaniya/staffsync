@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from auth.oauth2 import create_access_token
+from auth.oauth2 import create_access_token, get_current_user
 from db.database import get_db
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel
+from schemas import UserResponse
 
 router = APIRouter(tags=["Authentication"])
 
@@ -40,4 +41,17 @@ def get_token(
                 detail="This account is no longer active. Please contact the HR department for assistance.",
             )
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }  # returning as of now, will return relevant user details later
+
+
+@router.get("/auth/me", response_model=UserResponse)
+def verify_token_and_get_user(current_user=Depends(get_current_user)):
+    if current_user.account_status != AccountStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is no longer active.",
+        )
+    return current_user
