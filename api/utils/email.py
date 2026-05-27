@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import httpx
 from dotenv import load_dotenv
@@ -239,7 +240,7 @@ async def send_account_activation_email(
                         font-size: 12px;
                         color: #9CA3AF;
                     ">
-                        © 2026 StaffSync Enterprise Suite
+                        © {datetime.now().year} StaffSync Enterprise Suite
                     </p>
 
                 </div>

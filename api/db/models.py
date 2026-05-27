@@ -3,7 +3,15 @@ import enum
 from typing import Optional
 
 from pydantic import BaseModel
-from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
@@ -100,12 +108,19 @@ class UserModel(Base):
         nullable=False,
     )
     employment_details: Mapped[Optional["UserEmploymentDetailsModel"]] = relationship(
-        back_populates="user", foreign_keys="UserEmploymentDetailsModel.user_id"
+        back_populates="user",
+        foreign_keys="UserEmploymentDetailsModel.user_id",
+        cascade="all, delete-orphan",
     )
     payroll_details: Mapped[Optional["UserPayrollAndBankModel"]] = relationship(
-        back_populates="user", foreign_keys="UserPayrollAndBankModel.user_id"
+        back_populates="user",
+        foreign_keys="UserPayrollAndBankModel.user_id",
+        cascade="all, delete-orphan",
     )
     documents: Mapped[list["UserDocumentsModel"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    leave_balances: Mapped[list["UserLeaveBalanceModel"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -167,7 +182,9 @@ class LeavePolicyRuleModel(Base):
 class UserEmploymentDetailsModel(Base):
     __tablename__ = "user_employment_details"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True
+    )
     department: Mapped[str]
     designation: Mapped[str]
     employment_type: Mapped[EmploymentType] = mapped_column(
@@ -186,7 +203,9 @@ class UserEmploymentDetailsModel(Base):
 class UserPayrollAndBankModel(Base):
     __tablename__ = "user_payroll_and_bank"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True
+    )
     annual_ctc: Mapped[float]
     basic_salary: Mapped[float]
     hra: Mapped[float]
@@ -221,3 +240,21 @@ class UserDocumentsModel(Base):
         DateTime(timezone=True), default=func.now(), nullable=False
     )
     user: Mapped["UserModel"] = relationship(back_populates="documents")
+
+
+class UserLeaveBalanceModel(Base):
+    __tablename__ = "user_leave_balances"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    leave_type_id: Mapped[int] = mapped_column(
+        ForeignKey("leave_types.id", ondelete="CASCADE"), index=True
+    )
+    allocated_days: Mapped[float] = mapped_column(default=0)
+    used_days: Mapped[float] = mapped_column(default=0)
+    available_balance: Mapped[float] = mapped_column(default=0)
+    calendar_year: Mapped[int] = mapped_column(
+        Integer, default=lambda: datetime.now().year
+    )
+    user: Mapped["UserModel"] = relationship(back_populates="leave_balances")

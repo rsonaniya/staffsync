@@ -1,12 +1,14 @@
-from datetime import date
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from db.db_leave_policy_rule import get_db_leave_policy_rules_by_policy_id
 from db.hash_password import HashPassword
 from db.models import (
     UserDocumentsModel,
     UserEmploymentDetailsModel,
+    UserLeaveBalanceModel,
     UserModel,
     UserPayrollAndBankModel,
 )
@@ -151,3 +153,34 @@ def create_db_user_document_staged(id: int, request: UserDocumentInternal, db: S
     )
     db.add(new_db_user_document)
     return new_db_user_document
+
+
+def initialize_employee_leaves(db: Session, user_id: int, policy_id: int):
+    policy_rules = get_db_leave_policy_rules_by_policy_id(policy_id, db)
+    if not policy_rules:
+        return
+    current_date = datetime.now(timezone.utc)
+    current_day = current_date.day
+    current_month = current_date.month
+    current_year = current_date.year
+    for rule in policy_rules:
+        calculated_allowance = 0.0
+        if rule.credit_frequency == "MONTHLY_ACCRUAL":
+            monthly_quota = float(rule.allowance) / 12.0
+            if current_day <= 15:
+                calculated_allowance = monthly_quota
+            else:
+                calculated_allowance = monthly_quota / 2.0
+        elif rule.credit_frequency == "YEARLY_UPFRONT":
+            month_remaining = 12 - current_month + 1
+            prorated_yearly = (float(rule.allowance) / 12) * month_remaining
+            calculated_allowance = round(prorated_yearly * 2) / 2
+        new_balance = UserLeaveBalanceModel(
+            user_id=user_id,
+            leave_type_id=rule.leave_type_id,
+            allocated_days=calculated_allowance,
+            available_balance=calculated_allowance,
+            used_days=0.0,
+            calendar_year=current_year,
+        )
+        db.add(new_balance)

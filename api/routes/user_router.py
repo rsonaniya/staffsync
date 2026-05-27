@@ -17,6 +17,7 @@ from db.db_user import (
     get_db_user_by_userid,
     get_db_user_emp_details_by_userid,
     get_db_user_payroll_bank_by_userid,
+    initialize_employee_leaves,
 )
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel, UserRole
@@ -256,6 +257,15 @@ def create_user_password(request: UserPasswordSetRequest, db=Depends(get_db)):
     current_user.account_status = AccountStatus.ACTIVE
     current_user.password_token = None
     current_user.password_token_expiry = None
+    current_user_emp_details = get_db_user_emp_details_by_userid(current_user.id, db)
+    if not current_user_emp_details:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something ent wrong, Please ask you HR to send a new link",
+        )
+    initialize_employee_leaves(
+        db, current_user.id, current_user_emp_details.leave_policy_id
+    )
     db.commit()
     return {"message": "Password has been set successfully and Account Activated"}
     # TODO: Create Leave Balance data in LeaveBalance model once Model is created

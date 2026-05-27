@@ -70,3 +70,13 @@ def delete_db_leave_policy_rule(leave_policy_rule: LeavePolicyRuleModel, db: Ses
     db.delete(leave_policy_rule)
     db.commit()
     return {"message": "Leave policy rule deleted successfully"}
+
+
+def get_db_leave_policy_rules_by_policy_id(
+    policy_id: int, db: Session
+):  # reusable utility fn
+    return (
+        db.query(LeavePolicyRuleModel)
+        .filter(LeavePolicyRuleModel.leave_policy_id == policy_id)
+        .all()
+    )
