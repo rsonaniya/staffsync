@@ -9,6 +9,17 @@ from routes import (
     leave_policy_rule_router,
 )
 from auth import authentication
+from contextlib import asynccontextmanager
+
+from utils.cloudinary_client import init_cloudinary
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_cloudinary()
+    print("cloudinary SDK Initialized")
+    yield
+
 
 app = FastAPI()
 

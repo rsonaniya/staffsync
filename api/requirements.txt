@@ -31,4 +31,7 @@ watchfiles==1.2.0
 websockets==16.0
 email-validator==2.3.0
 tzdata
+cloudinary
+httpx==0.28.1
+
 

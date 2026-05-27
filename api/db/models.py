@@ -11,7 +11,7 @@ from db.database import Base
 
 class AccountStatus(str, enum.Enum):
     INVITED = "INVITED"
-    PENDING_ACTIVATION = "PENDING_ACTIVATION"
+    CREATED = "CREATED"
     ACTIVE = "ACTIVE"
     TERMINATED = "TERMINATED"
     RESIGNED = "RESIGNED"
@@ -44,6 +44,15 @@ class EmploymentType(str, enum.Enum):
     PROBATION = "PROBATION"
 
 
+class DocumentCategory(str, enum.Enum):
+    IDENTITY = "IDENTITY"
+    ADDRESS = "ADDRESS"
+    EDUCATION = "EDUCATION"
+    EMPLOYMENT = "EMPLOYMENT"
+    FINANCIAL = "FINANCIAL"
+    OTHER = "OTHER"
+
+
 class UserModel(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -74,9 +83,13 @@ class UserModel(Base):
     emergency_contact_phone: Mapped[str] = mapped_column(String(20))
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
     account_status: Mapped[AccountStatus] = mapped_column(
-        Enum(AccountStatus), default=AccountStatus.INVITED, nullable=False
+        Enum(AccountStatus), default=AccountStatus.CREATED, nullable=False
     )
     onboarding_step: Mapped[int] = mapped_column(default=1, nullable=False)
+    password_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    password_token_expiry: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True)
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -91,6 +104,9 @@ class UserModel(Base):
     )
     payroll_details: Mapped[Optional["UserPayrollAndBankModel"]] = relationship(
         back_populates="user", foreign_keys="UserPayrollAndBankModel.user_id"
+    )
+    documents: Mapped[list["UserDocumentsModel"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -186,3 +202,22 @@ class UserPayrollAndBankModel(Base):
     user: Mapped["UserModel"] = relationship(
         back_populates="payroll_details", foreign_keys=[user_id]
     )
+
+
+class UserDocumentsModel(Base):
+    __tablename__ = "user_documents"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    category: Mapped[DocumentCategory] = mapped_column(
+        Enum(DocumentCategory), nullable=False
+    )
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    file_public_id: Mapped[str] = mapped_column(String(1024), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=func.now(), nullable=False
+    )
+    user: Mapped["UserModel"] = relationship(back_populates="documents")

@@ -4,9 +4,15 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from db.hash_password import HashPassword
-from db.models import UserEmploymentDetailsModel, UserModel, UserPayrollAndBankModel
+from db.models import (
+    UserDocumentsModel,
+    UserEmploymentDetailsModel,
+    UserModel,
+    UserPayrollAndBankModel,
+)
 from schemas import (
     UserCreateRequest,
+    UserDocumentInternal,
     UserEmploymentDetailsCreateRequest,
     UserPayrollAndBankCreateRequest,
 )
@@ -132,3 +138,16 @@ def create_db_user_payroll_bank_details(
     db.commit()
     db.refresh(new_user_payroll_bank_details)
     return new_user_payroll_bank_details
+
+
+def create_db_user_document_staged(id: int, request: UserDocumentInternal, db: Session):
+    new_db_user_document = UserDocumentsModel(
+        user_id=id,
+        category=request.category,
+        file_name=request.file_name,
+        file_url=request.file_url,
+        file_public_id=request.file_public_id,
+        display_name=request.display_name,
+    )
+    db.add(new_db_user_document)
+    return new_db_user_document

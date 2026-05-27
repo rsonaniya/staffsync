@@ -1,11 +1,18 @@
-from datetime import date
+from datetime import date, datetime
 import enum
 from typing import Optional
 from zoneinfo import available_timezones
 
+from fastapi import File, Form, UploadFile
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from db.models import CreditFrequency, EmploymentType, Gender, UserRole
+from db.models import (
+    CreditFrequency,
+    DocumentCategory,
+    EmploymentType,
+    Gender,
+    UserRole,
+)
 
 
 class UserCreateRequest(BaseModel):
@@ -244,3 +251,49 @@ class UserPayrollAndBankCreateResponse(UserPayrollAndBankCreateRequest):
     id: int
     user_id: int
     currency: str
+
+
+class UserDocumentCreateRequest:
+    def __init__(
+        self,
+        files: list[UploadFile] = File(..., description="The physical documents"),
+        categories: list[DocumentCategory] = Form(
+            ..., description="Category for Attached document"
+        ),
+        display_names: list[str] = Form(
+            ...,
+            description="A name for the file to show in UI",
+        ),
+    ):
+        self.files = files
+        self.categories = categories
+        self.display_names = display_names
+
+
+class UserDocumentInternal(BaseModel):
+    category: DocumentCategory
+    display_name: str
+    file_name: str
+    file_url: str
+    file_public_id: str
+
+
+class UserDocumentResponse(UserDocumentInternal):
+    id: int
+    user_id: int
+    uploaded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserPasswordSetRequest(BaseModel):
+    email: EmailStr = Field(
+        ..., description="Email on which the password token is sent"
+    )
+    token: str = Field(..., description="token received on email")
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=14,
+        description="New password between 8-14 characters",
+    )

@@ -24,12 +24,12 @@ def get_token(
             status_code=status.HTTP_400_BAD_REQUEST, detail="invalid credentials"
         )
     if user.account_status != AccountStatus.ACTIVE:
-        if user.account_status == AccountStatus.INVITED:
+        if user.account_status == AccountStatus.CREATED:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Your account has been created but not activated. Please check your personal email for the onboarding activation link or ask you HR to send the link",
             )
-        elif user.account_status == AccountStatus.PENDING_ACTIVATION:
+        elif user.account_status == AccountStatus.INVITED:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Your account profile setup is incomplete. Please use the activation link sent to your email to finalize your account.",
