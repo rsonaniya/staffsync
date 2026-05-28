@@ -8,6 +8,7 @@ from auth.oauth2 import get_current_user
 from auth.security import verify_onboarding_permissions
 from db.database import get_db
 from db.db_leave_policy import get_db_leave_policy_by_id
+from db.db_shift import get_shift_by_id
 from db.db_user import (
     create_db_user,
     create_db_user_document_staged,
@@ -29,6 +30,7 @@ from schemas import (
     UserDocumentInternal,
     UserEmploymentDetailsCreateRequest,
     UserEmploymentDetailsResponse,
+    UserForgotPasswordRequest,
     UserPasswordSetRequest,
     UserPayrollAndBankCreateRequest,
     UserPayrollAndBankCreateResponse,
@@ -36,7 +38,7 @@ from schemas import (
 )
 import cloudinary.uploader
 
-from utils.email import send_account_activation_email
+from utils.email import send_account_activation_email, send_reset_password_email
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -132,6 +134,13 @@ def create_user_emp_details(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No active leave policy found with given leave policy id",
         )
+    current_shift = get_shift_by_id(request.shift_id, db)
+    if not current_shift or not current_shift.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No active shift found with the given shift id {request.shift_id}",
+        )
+
     existing_user.onboarding_step = 2
     return create_db_user_emp_details(id, request, db)
 
@@ -276,3 +285,64 @@ def get_namager_list(
     db: Session = Depends(get_db), current_user=Depends(get_current_user)
 ):
     return get_db_active_managers(db)
+
+
+@router.post("/forgot-password")
+def create_password_reset_token(
+    request: UserForgotPasswordRequest, bg_tasks: BackgroundTasks, db=Depends(get_db)
+):
+    current_user_by_email = get_db_user_by_email(request.email, db)
+    if (
+        not current_user_by_email
+        or current_user_by_email.account_status != AccountStatus.ACTIVE
+    ):
+        return {
+            "message": "If you are registered with us, you will receive an email for password reset link"
+        }
+    password_reset_token = secrets.token_urlsafe(16)
+    current_user_by_email.password_token = HashPassword.bcrypt(password_reset_token)
+    current_user_by_email.password_token_expiry = datetime.now(
+        timezone.utc
+    ) + timedelta(hours=4)
+    db.commit()
+    bg_tasks.add_task(
+        send_reset_password_email,
+        current_user_by_email.email,
+        f"{current_user_by_email.first_name} {current_user_by_email.last_name}",
+        password_reset_token,
+    )
+    return {
+        "message": "If you are registered with us, you will receive an email for password reset link"
+    }
+
+
+@router.post("/reset-password")
+def create_user_password(request: UserPasswordSetRequest, db=Depends(get_db)):
+    current_user = get_db_user_by_email(request.email, db)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Wrong Email or token provided",
+        )
+    if not current_user.password_token or not current_user.password_token_expiry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Wrong Email or token provided",
+        )
+    if not HashPassword.verify(request.token, current_user.password_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Wrong Email or token provided",
+        )
+    if datetime.now(timezone.utc) > current_user.password_token_expiry:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link Expired, Please request a new link",
+        )
+    current_user.password = HashPassword.bcrypt(request.password)
+    current_user.password_token = None
+    current_user.password_token_expiry = None
+    db.commit()
+    return {
+        "message": "Password has been set successfully, You can login with your email and new password"
+    }

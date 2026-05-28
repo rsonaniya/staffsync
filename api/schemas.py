@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 import enum
 from typing import Optional
 from zoneinfo import available_timezones
@@ -214,12 +214,14 @@ class UserEmploymentDetailsCreateRequest(BaseModel):
         0, ge=0, description="Users probabion period"
     )
     leave_policy_id: int = Field(..., description="A valid Leave policy ID")
+    shift_id: int = Field(..., description="A valid Shift ID")
     model_config = {"from_attributes": True}
 
 
 class UserEmploymentDetailsResponse(UserEmploymentDetailsCreateRequest):
     id: int
     user_id: int
+    shift: Optional["ShiftResponse"] = None
 
 
 class UserPayrollAndBankCreateRequest(BaseModel):
@@ -349,3 +351,25 @@ class ManagerLookUpResponse(BaseModel):
     last_name: Optional[str]
     profile_image_url: Optional[str]
     model_config = {"from_attributes": True}
+
+
+class ShiftCreateRequest(BaseModel):
+    name: str = Field(
+        ..., min_length=2, max_length=50, description="Shift name (e,g:'Morning Shift')"
+    )
+    start_time: time = Field(..., description="Expected start time (HH:MM:SS)")
+    end_time: time = Field(..., description="Expected end time (HH:MM:SS)")
+    grace_period_minutes: int = Field(
+        15, ge=0, description="Allowed late minutes before marking half-day/absent"
+    )
+    is_active: bool = Field(True, description="Flag for active shifts")
+
+    model_config = {"from_attributes": True}
+
+
+class ShiftResponse(ShiftCreateRequest):
+    id: int
+
+
+class UserForgotPasswordRequest(BaseModel):
+    email: EmailStr = Field(..., description="Unique corporate email")

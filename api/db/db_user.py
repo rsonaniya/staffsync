@@ -105,6 +105,7 @@ def create_db_user_emp_details(
         probation_period_months=request.probation_period_months,
         leave_policy_id=request.leave_policy_id,
         user_id=id,
+        shift_id=request.shift_id,
     )
     db.add(new_user_emp_details)
     db.commit()

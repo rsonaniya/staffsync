@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 import enum
 from typing import Optional
 
@@ -198,6 +198,8 @@ class UserEmploymentDetailsModel(Base):
         back_populates="employment_details", foreign_keys=[user_id]
     )
     leave_policy: Mapped["LeavePolicyModel"] = relationship(back_populates="employees")
+    shift_id: Mapped[int] = mapped_column(ForeignKey("shifts.id"))
+    shift: Mapped["ShiftModel"] = relationship()
 
 
 class UserPayrollAndBankModel(Base):
@@ -258,3 +260,13 @@ class UserLeaveBalanceModel(Base):
         Integer, default=lambda: datetime.now().year
     )
     user: Mapped["UserModel"] = relationship(back_populates="leave_balances")
+
+
+class ShiftModel(Base):
+    __tablename__ = "shifts"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    start_time: Mapped[time] = mapped_column(nullable=False)
+    end_time: Mapped[time] = mapped_column(nullable=False)
+    grace_period_minutes: Mapped[int] = mapped_column(default=15)
+    is_active: Mapped[bool] = mapped_column(default=True)
