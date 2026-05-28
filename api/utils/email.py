@@ -7,6 +7,7 @@ from fastapi import HTTPException
 load_dotenv()
 
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+FRONT_END_URL = os.getenv("FRONT_END_URL")
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
@@ -65,7 +66,7 @@ async def send_account_activation_email(
     token: str,
 ):
     activation_link = (
-        f"https://staffsync.com/activate-account" f"?token={token}&email={email_to}"
+        f"{FRONT_END_URL}/activate-account" f"?token={token}&email={email_to}"
     )
 
     html_content = f"""

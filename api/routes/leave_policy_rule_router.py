@@ -31,13 +31,15 @@ def create_leave_policy_rule(
             detail=f"A user with Role {current_user.role.value} is not permitted to create leave policy rule",
         )
     current_leave_type_by_id = get_leave_type_by_id(request.leave_type_id, db)
-    if not current_leave_type_by_id or not current_leave_type_by_id.is_active:
+    if not current_leave_type_by_id:
+        # or not current_leave_type_by_id.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"invalid leave type id {request.leave_type_id}",
         )
     current_leave_policy_by_id = get_db_leave_policy_by_id(request.leave_policy_id, db)
-    if not current_leave_policy_by_id or not current_leave_policy_by_id.is_active:
+    if not current_leave_policy_by_id:
+        # or not current_leave_policy_by_id.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"invalid leave policy id {request.leave_policy_id}",

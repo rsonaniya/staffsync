@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { SubmitHandler } from "react-hook-form";
 import type { MouseEvent } from "react";
@@ -16,6 +16,8 @@ import {
   TextField,
   Typography,
   Link,
+  Snackbar, // <-- Added for toaster
+  Alert, // <-- Added for toaster look
 } from "@mui/material";
 import {
   EmailOutlined,
@@ -26,8 +28,9 @@ import {
   ArrowForward,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { axiosInstance } from "../api/axiosInstance";
 
-// Define the shape of our form data
 type LoginFormInputs = {
   email: string;
   password: string;
@@ -35,11 +38,30 @@ type LoginFormInputs = {
 };
 
 export default function LoginPage() {
-  // UI state for password visibility (does not belong in form data)
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize react-hook-form
+  // TOASTER STATE SYSTEM
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    severity: "error" | "success";
+  }>({
+    open: false,
+    message: "",
+    severity: "error",
+  });
+
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
+
+  // React Hook Form implementation
   const {
     register,
     handleSubmit,
@@ -50,7 +72,7 @@ export default function LoginPage() {
       password: "",
       rememberMe: false,
     },
-    mode: "onTouched", // Validates when the user blurs the input
+    mode: "onTouched", // Validates automatically when fields are blurred
   });
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -58,11 +80,55 @@ export default function LoginPage() {
     event.preventDefault();
   };
 
-  // Submit handler provided by react-hook-form
-  const onSubmit: SubmitHandler<LoginFormInputs> = (data) => {
-    // TODO: Implement actual login logic here
-    console.log("Form is valid. Submitting:", data);
-    navigate("/dashboard");
+  const handleCloseToast = (
+    _?: React.SyntheticEvent | Event,
+    reason?: string,
+  ) => {
+    if (reason === "clickaway") return;
+    setToast((prev) => ({ ...prev, open: false }));
+  };
+
+  const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
+    setIsSubmitting(true);
+
+    try {
+      const params = new URLSearchParams();
+      params.append("username", data.email);
+      params.append("password", data.password);
+
+      const tokenResponse = await axiosInstance.post("/login", params, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+
+      const { access_token } = tokenResponse.data;
+
+      const profileResponse = await axiosInstance.get("/auth/me", {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+
+      // Trigger a success toast just before redirecting
+      setToast({
+        open: true,
+        message: "Logged in successfully! Redirecting...",
+        severity: "success",
+      });
+
+      setTimeout(() => {
+        login(access_token, profileResponse.data);
+      }, 1000);
+    } catch (err: any) {
+      console.error("Login sequence error:", err);
+      // Trigger error toaster dynamically based on backend message
+      setToast({
+        open: true,
+        message:
+          err.response?.data?.detail ||
+          "Invalid work email or password. Please try again.",
+        severity: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -77,7 +143,7 @@ export default function LoginPage() {
         overflow: "hidden",
       }}
     >
-      {/* Subtle Background Accents */}
+      {/* Background Accents */}
       <Box
         sx={{
           position: "absolute",
@@ -106,6 +172,23 @@ export default function LoginPage() {
           pointerEvents: "none",
         }}
       />
+
+      {/* GLOBAL TOASTER COMPONENT */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={5000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          onClose={handleCloseToast}
+          severity={toast.severity}
+          variant="filled"
+          sx={{ width: "100%", borderRadius: 1.5 }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
 
       <Container maxWidth="xs" sx={{ position: "relative", zIndex: 1 }}>
         <Card
@@ -148,7 +231,7 @@ export default function LoginPage() {
               </Typography>
             </Stack>
 
-            {/* Login Form */}
+            {/* Login Form with useForm validations natively attached */}
             <form onSubmit={handleSubmit(onSubmit)} noValidate>
               <Stack spacing={2}>
                 {/* Email Field */}
@@ -167,6 +250,7 @@ export default function LoginPage() {
                   <TextField
                     fullWidth
                     id="email"
+                    disabled={isSubmitting}
                     placeholder="name@company.com"
                     variant="outlined"
                     type="email"
@@ -193,33 +277,21 @@ export default function LoginPage() {
 
                 {/* Password Field */}
                 <Box>
-                  <Stack
+                  <Typography
+                    variant="caption"
                     sx={{
-                      justifyContent: "space-between",
-                      alignItems: "center",
+                      fontWeight: 500,
+                      color: "text.secondary",
+                      display: "block",
                       mb: 0.5,
                     }}
-                    direction="row"
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 500,
-                        color: "text.secondary",
-                        display: "block",
-                        mb: 0.5,
-                      }}
-                    >
-                      Password
-                    </Typography>
-                    {/* <Link href="#" variant="caption" underline="hover" fontWeight={500} sx={{ color: '#003d9b' }}>
-                      Forgot password?
-                    </Link> 
-                    */}
-                  </Stack>
+                    Password
+                  </Typography>
                   <TextField
                     fullWidth
                     id="password"
+                    disabled={isSubmitting}
                     placeholder="Enter your password"
                     variant="outlined"
                     type={showPassword ? "text" : "password"}
@@ -246,6 +318,7 @@ export default function LoginPage() {
                               onClick={handleClickShowPassword}
                               onMouseDown={handleMouseDownPassword}
                               edge="end"
+                              disabled={isSubmitting}
                             >
                               {showPassword ? (
                                 <VisibilityOff />
@@ -263,7 +336,11 @@ export default function LoginPage() {
                 {/* Remember Me */}
                 <FormControlLabel
                   control={
-                    <Checkbox color="primary" {...register("rememberMe")} />
+                    <Checkbox
+                      color="primary"
+                      disabled={isSubmitting}
+                      {...register("rememberMe")}
+                    />
                   }
                   label={
                     <Typography variant="body2" color="text.secondary">
@@ -279,6 +356,7 @@ export default function LoginPage() {
                   fullWidth
                   variant="contained"
                   disableElevation
+                  disabled={isSubmitting}
                   endIcon={<ArrowForward />}
                   sx={{
                     py: 1.5,
@@ -291,7 +369,7 @@ export default function LoginPage() {
                     },
                   }}
                 >
-                  Login to Portal
+                  {isSubmitting ? "Authenticating..." : "Login to Portal"}
                 </Button>
               </Stack>
             </form>
@@ -300,10 +378,7 @@ export default function LoginPage() {
             <Box sx={{ mt: 4, textAlign: "center" }}>
               <Typography
                 variant="caption"
-                sx={{
-                  color: "text.secondary",
-                  display: "block",
-                }}
+                sx={{ color: "text.secondary", display: "block" }}
               >
                 Having trouble accessing your account?
               </Typography>
@@ -322,7 +397,7 @@ export default function LoginPage() {
         {/* Bottom branding mark */}
         <Box sx={{ mt: 3, textAlign: "center" }}>
           <Typography variant="caption" color="text.secondary">
-            © 2023 Enterprise Suite.
+            © 2026 Enterprise Suite.
           </Typography>
         </Box>
       </Container>

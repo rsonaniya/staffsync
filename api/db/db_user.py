@@ -166,6 +166,8 @@ def initialize_employee_leaves(db: Session, user_id: int, policy_id: int):
     current_month = current_date.month
     current_year = current_date.year
     for rule in policy_rules:
+        if not rule.leave_type.is_active:
+            continue
         calculated_allowance = 0.0
         if rule.credit_frequency == "MONTHLY_ACCRUAL":
             monthly_quota = float(rule.allowance) / 12.0

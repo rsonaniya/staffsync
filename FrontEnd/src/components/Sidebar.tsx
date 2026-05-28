@@ -21,7 +21,11 @@ import {
   HelpOutlined,
   GroupsOutlined,
   FactCheckOutlined,
+  SettingsSuggestOutlined,
+  GavelOutlined,
+  PlaylistAddCheckOutlined,
 } from "@mui/icons-material";
+import { useAuth } from "../context/AuthContext"; // Import auth hook to check permissions
 
 const SIDEBAR_WIDTH = 280;
 
@@ -30,7 +34,7 @@ interface NavItem {
   icon: React.ReactNode;
   path: string;
 }
-// Configuration array for main navigation mapping
+
 const MAIN_NAV_ITEMS = [
   { text: "Dashboard", icon: <DashboardOutlined />, path: "/dashboard" },
   { text: "Attendance", icon: <CalendarToday />, path: "/attendance" },
@@ -41,10 +45,24 @@ const MAIN_NAV_ITEMS = [
   { text: "Payslips", icon: <PaymentsOutlined />, path: "/payslips" },
 ];
 
-// Configuration array for administration mapping
 const ADMIN_NAV_ITEMS = [
   { text: "Employees", icon: <GroupsOutlined />, path: "/employees" },
   { text: "Approvals", icon: <FactCheckOutlined />, path: "/approvals" },
+];
+
+// Clean addition of the premium setup elements
+const CONFIG_NAV_ITEMS = [
+  {
+    text: "Leave Types",
+    icon: <SettingsSuggestOutlined />,
+    path: "/leave-types",
+  },
+  { text: "Leave Policies", icon: <GavelOutlined />, path: "/leave-policies" },
+  {
+    text: "Policy Rules",
+    icon: <PlaylistAddCheckOutlined />,
+    path: "/policy-rules",
+  },
 ];
 
 const BOTTOM_NAV_ITEMS = [
@@ -55,8 +73,11 @@ const BOTTOM_NAV_ITEMS = [
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth(); // Destructure currently logged in user state
 
-  // Helper function to render navigation items to keep code DRY
+  // Check if current agent has global administrative permissions
+  const isSystemManager = user?.role === "ADMIN" || user?.role === "HR_MANAGER";
+
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname.startsWith(item.path);
 
@@ -77,7 +98,6 @@ export default function Sidebar() {
                 ? "rgba(205, 221, 255, 0.4)"
                 : "rgba(231, 232, 234, 0.5)",
             },
-            // Left blue border for active state
             "&::before": isActive
               ? {
                   content: '""',
@@ -127,8 +147,8 @@ export default function Sidebar() {
         "& .MuiDrawer-paper": {
           width: SIDEBAR_WIDTH,
           boxSizing: "border-box",
-          backgroundColor: "#f8f9fb", // surface color
-          borderRight: "1px solid rgba(195, 198, 214, 0.5)", // outline-variant
+          backgroundColor: "#f8f9fb",
+          borderRight: "1px solid rgba(195, 198, 214, 0.5)",
           display: "flex",
           flexDirection: "column",
         },
@@ -143,7 +163,7 @@ export default function Sidebar() {
             width: 40,
             height: 40,
             borderRadius: 2,
-            backgroundColor: "#003d9b", // primary
+            backgroundColor: "#003d9b",
             color: "#ffffff",
             display: "flex",
             alignItems: "center",
@@ -170,13 +190,14 @@ export default function Sidebar() {
         </Box>
       </Box>
 
-      {/* Main Navigation Tabs */}
+      {/* Navigation Streams */}
       <Box sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
         <List sx={{ p: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {MAIN_NAV_ITEMS.map(renderNavItem)}
         </List>
 
-        {/* Administration Section */}
+        {/* Administration Operational Section */}
+        {/* Visible by Admins, HR Managers, or Standard Managers/HR agents depending on your routing setup */}
         <Box sx={{ mt: 4, mb: 1 }}>
           <Typography
             sx={{
@@ -203,30 +224,40 @@ export default function Sidebar() {
             {ADMIN_NAV_ITEMS.map(renderNavItem)}
           </List>
         </Box>
+
+        {/* System Configuration Block (Exclusively for ADMIN and HR_MANAGER) */}
+        {isSystemManager && (
+          <Box sx={{ mt: 4, mb: 1 }}>
+            <Typography
+              sx={{
+                px: 2,
+                py: 0.5,
+                fontSize: "0.6875rem",
+                fontWeight: 700,
+                color: "#737685",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              System Configuration
+            </Typography>
+            <List
+              sx={{
+                p: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.5,
+                mt: 0.5,
+              }}
+            >
+              {CONFIG_NAV_ITEMS.map(renderNavItem)}
+            </List>
+          </Box>
+        )}
       </Box>
 
-      {/* CTA & Footer Nav */}
+      {/* Footer Navigation Area */}
       <Box sx={{ p: 3, borderTop: "1px solid rgba(195, 198, 214, 0.5)" }}>
-        {/* <Button
-          variant="contained"
-          fullWidth
-          startIcon={<AddOutlined />}
-          disableElevation
-          sx={{
-            py: 1,
-            mb: 2,
-            backgroundColor: "#003d9b",
-            textTransform: "none",
-            fontWeight: 600,
-            borderRadius: 2,
-            "&:hover": {
-              backgroundColor: "#0052cc", // primary-container equivalent hover
-            },
-          }}
-        >
-          New Request
-        </Button> */}
-
         <List sx={{ p: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {BOTTOM_NAV_ITEMS.map((item) => (
             <ListItem key={item.text} disablePadding>
