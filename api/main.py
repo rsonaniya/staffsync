@@ -10,6 +10,8 @@ from routes import (
     leave_policy_router,
     leave_policy_rule_router,
     user_shift_router,
+    locations_router,
+    holiday_router,
 )
 from auth import authentication
 from contextlib import asynccontextmanager
@@ -32,6 +34,8 @@ app.include_router(leave_type_router.router)
 app.include_router(leave_policy_router.router)
 app.include_router(leave_policy_rule_router.router)
 app.include_router(user_shift_router.router)
+app.include_router(locations_router.router)
+app.include_router(holiday_router.router)
 
 
 @app.get("/health-check")

@@ -21,6 +21,9 @@ import LeavePoliciesPage from "./pages/LeavePoliciesPage";
 import PolicyRulesPage from "./pages/PolicyRulesPage";
 import ActivateAccountPage from "./pages/AuthActionPage";
 import { ToastProvider } from "./context/ToastContext";
+import ShiftsPage from "./pages/ShiftsPage";
+import LocationsPage from "./pages/LocationsPage";
+import ManageHolidaysPage from "./pages/ManageHolidaysPage";
 
 // ==========================================
 // PROTECTED ROUTE COMPONENT (Role Enforcement)
@@ -118,6 +121,12 @@ export default function App() {
                 <Route path="leave-types" element={<LeaveTypesPage />} />
                 <Route path="leave-policies" element={<LeavePoliciesPage />} />
                 <Route path="policy-rules" element={<PolicyRulesPage />} />
+                <Route path="shifts" element={<ShiftsPage />} />
+                <Route path="locations" element={<LocationsPage />} />
+                <Route
+                  path="manage-holidays"
+                  element={<ManageHolidaysPage />}
+                />
               </Route>
 
               {/* Settings & Help Placeholders */}

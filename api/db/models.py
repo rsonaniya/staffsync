@@ -1,14 +1,18 @@
 from datetime import date, datetime, time
 import enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
     String,
+    Table,
     UniqueConstraint,
     func,
 )
@@ -194,6 +198,8 @@ class UserEmploymentDetailsModel(Base):
     joining_date: Mapped[date]
     probation_period_months: Mapped[int] = mapped_column(default=0)
     leave_policy_id: Mapped[int] = mapped_column(ForeignKey("leave_policies.id"))
+    location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"))
+    location: Mapped["LocationModel"] = relationship()
     user: Mapped["UserModel"] = relationship(
         back_populates="employment_details", foreign_keys=[user_id]
     )
@@ -270,3 +276,42 @@ class ShiftModel(Base):
     end_time: Mapped[time] = mapped_column(nullable=False)
     grace_period_minutes: Mapped[int] = mapped_column(default=15)
     is_active: Mapped[bool] = mapped_column(default=True)
+
+
+# holiday junction table
+holiday_location_association = Table(
+    "holiday_location",
+    Base.metadata,
+    Column(
+        "holiday_id", ForeignKey("holidays.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column(
+        "location_id", ForeignKey("locations.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
+
+class LocationModel(Base):
+    __tablename__ = "locations"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(250), nullable=False)
+    city: Mapped[str] = mapped_column(String(250), nullable=False)
+    address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    state: Mapped[str] = mapped_column(String(100), nullable=False)
+    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    timezone: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    holidays: Mapped[List["HolidayModel"]] = relationship(
+        secondary=holiday_location_association, back_populates="locations"
+    )
+
+
+class HolidayModel(Base):
+    __tablename__ = "holidays"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(250), nullable=False)
+    applicable_date: Mapped[date] = mapped_column(Date, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    locations: Mapped[List["LocationModel"]] = relationship(
+        secondary=holiday_location_association, back_populates="holidays"
+    )

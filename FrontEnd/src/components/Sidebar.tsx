@@ -24,6 +24,9 @@ import {
   SettingsSuggestOutlined,
   GavelOutlined,
   PlaylistAddCheckOutlined,
+  AccessTimeOutlined, // Added for Shifts configuration mapping
+  FmdGoodOutlined, // Added for Locations configuration mapping
+  CalendarMonthOutlined, // Added for Holidays management mapping
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext"; // Import auth hook to check permissions
 
@@ -50,7 +53,7 @@ const ADMIN_NAV_ITEMS = [
   { text: "Approvals", icon: <FactCheckOutlined />, path: "/approvals" },
 ];
 
-// Clean addition of the premium setup elements
+// UPDATED: Added Shifts, Locations, and Holidays configuration items cleanly
 const CONFIG_NAV_ITEMS = [
   {
     text: "Leave Types",
@@ -62,6 +65,21 @@ const CONFIG_NAV_ITEMS = [
     text: "Policy Rules",
     icon: <PlaylistAddCheckOutlined />,
     path: "/policy-rules",
+  },
+  {
+    text: "Shifts",
+    icon: <AccessTimeOutlined />,
+    path: "/shifts",
+  },
+  {
+    text: "Locations",
+    icon: <FmdGoodOutlined />,
+    path: "/locations",
+  },
+  {
+    text: "Holidays",
+    icon: <CalendarMonthOutlined />,
+    path: "/manage-holidays", // Mapped to a distinct admin management path to avoid colliding with user holiday views
   },
 ];
 
@@ -197,34 +215,35 @@ export default function Sidebar() {
         </List>
 
         {/* Administration Operational Section */}
-        {/* Visible by Admins, HR Managers, or Standard Managers/HR agents depending on your routing setup */}
-        <Box sx={{ mt: 4, mb: 1 }}>
-          <Typography
-            sx={{
-              px: 2,
-              py: 0.5,
-              fontSize: "0.6875rem",
-              fontWeight: 700,
-              color: "#737685",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}
-          >
-            Administration
-          </Typography>
-          <List
-            sx={{
-              p: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 0.5,
-              mt: 0.5,
-            }}
-          >
-            {ADMIN_NAV_ITEMS.map(renderNavItem)}
-          </List>
-        </Box>
-
+        {user &&
+          ["ADMIN", "HR", "HR_MANAGER", "MANAGER"].includes(user.role) && (
+            <Box sx={{ mt: 4, mb: 1 }}>
+              <Typography
+                sx={{
+                  px: 2,
+                  py: 0.5,
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  color: "#737685",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Administration
+              </Typography>
+              <List
+                sx={{
+                  p: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0.5,
+                  mt: 0.5,
+                }}
+              >
+                {ADMIN_NAV_ITEMS.map(renderNavItem)}
+              </List>
+            </Box>
+          )}
         {/* System Configuration Block (Exclusively for ADMIN and HR_MANAGER) */}
         {isSystemManager && (
           <Box sx={{ mt: 4, mb: 1 }}>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
-  Divider,
 } from "@mui/material";
 import {
   BadgeOutlined,
@@ -27,11 +26,6 @@ import {
   LocationOnOutlined,
   AccountBalanceOutlined,
   WorkspacePremiumOutlined,
-  ZoomInOutlined,
-  ZoomOutOutlined,
-  RotateRightOutlined,
-  RestartAltOutlined,
-  CloseOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 
@@ -134,18 +128,6 @@ export default function DocumentsPage() {
     title: "",
   });
 
-  // Presentation Manipulation States (Image-only)
-  const [zoom, setZoom] = useState<number>(1);
-  const [rotation, setRotation] = useState<number>(0);
-
-  // Automatically reset canvas metrics back to default when modal is toggled or swapped
-  useEffect(() => {
-    if (!previewModal.open) {
-      setZoom(1);
-      setRotation(0);
-    }
-  }, [previewModal.open, previewModal.url]);
-
   // Extract documents array safely from user context
   const documentsList = useMemo(() => {
     return (user as any)?.documents || [];
@@ -178,14 +160,6 @@ export default function DocumentsPage() {
     setPreviewModal((prev) => ({ ...prev, open: false }));
   };
 
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3)); // Upper boundary capped at 300%
-  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5)); // Floor boundary capped at 50%
-  const handleRotate = () => setRotation((prev) => (prev + 90) % 360);
-  const handleResetTransform = () => {
-    setZoom(1);
-    setRotation(0);
-  };
-
   // Programmatic download utility that works across Cloudinary origins
   const handleDownloadFile = async (
     e: React.MouseEvent,
@@ -207,7 +181,7 @@ export default function DocumentsPage() {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("Failed to download file directly:", error);
-      // Fallback action: open in an isolated frame if CORS prevents programmatic blob fetch
+      // Fallback action: pop URL into an isolated frame if CORS prevents programmatic blob loading
       window.open(doc.file_url, "_blank");
     }
   };
@@ -293,7 +267,7 @@ export default function DocumentsPage() {
                   />
                 </Stack>
 
-                {/* Sub-Grid Item Box Cards Loop (Using Clean MUI v6 Responsive Object Mapping) */}
+                {/* Sub-Grid Item Box Cards Loop */}
                 <Grid container spacing={2.5}>
                   {docs.map((doc: BackendDocument) => (
                     <Grid
@@ -428,7 +402,7 @@ export default function DocumentsPage() {
       )}
 
       {/* ==========================================
-        4. ENHANCED PREVIEW LIGHTBOX WITH IMAGE MANIPULATION
+        4. DYNAMIC PREVIEW OVERLAY LIGHTBOX COMPONENT
        ========================================== */}
       <Dialog
         open={previewModal.open}
@@ -437,117 +411,37 @@ export default function DocumentsPage() {
         maxWidth="md"
         slotProps={{
           paper: {
-            sx: {
-              borderRadius: 3,
-              p: 0,
-              height: "85vh",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-            },
+            sx: { borderRadius: 3, p: 0, height: "80vh", overflow: "hidden" },
           },
         }}
       >
-        {/* Header Section */}
         <DialogTitle
           sx={{
             fontWeight: 700,
             borderBottom: "1px solid rgba(195, 198, 214, 0.4)",
-            py: 1.5,
+            py: 2,
             px: 3,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            backgroundColor: "#ffffff",
           }}
         >
-          <Typography sx={{ fontWeight: 700, textTransform: "capitalize" }}>
-            {previewModal.title.toLowerCase()}
-          </Typography>
-
-          {/* Floating Mid-Header Controls (Rendered Exclusively for Image Types) */}
-          {!isPdfPreview && (
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                alignItems: "center",
-                backgroundColor: "#f3f4f6",
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 2,
-              }}
-            >
-              <Tooltip title="Zoom In">
-                <IconButton
-                  size="small"
-                  onClick={handleZoomIn}
-                  sx={{ color: "text.primary" }}
-                >
-                  <ZoomInOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Zoom Out">
-                <IconButton
-                  size="small"
-                  onClick={handleZoomOut}
-                  sx={{ color: "text.primary" }}
-                >
-                  <ZoomOutOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Rotate 90°">
-                <IconButton
-                  size="small"
-                  onClick={handleRotate}
-                  sx={{ color: "text.primary" }}
-                >
-                  <RotateRightOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Divider
-                orientation="vertical"
-                flexItem
-                sx={{ mx: 0.5, my: 0.75 }}
-              />
-              <Tooltip title="Reset View">
-                <IconButton
-                  size="small"
-                  onClick={handleResetTransform}
-                  sx={{ color: "text.primary" }}
-                >
-                  <RestartAltOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          )}
-
-          <IconButton
-            onClick={handleClosePreview}
-            size="small"
-            sx={{ color: "text.secondary" }}
-          >
-            <CloseOutlined fontSize="small" />
-          </IconButton>
+          {previewModal.title}
         </DialogTitle>
-
-        {/* Viewport Canvas Area */}
         <DialogContent
           sx={{
             p: 0,
-            flexGrow: 1,
+            height: "100%",
             backgroundColor: "#e5e7eb",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            overflow: "auto",
-            position: "relative",
           }}
         >
           {previewModal.url ? (
             isPdfPreview ? (
               <iframe
-                src={`${previewModal.url}#toolbar=1&view=FitH`}
+                src={`${previewModal.url}#toolbar=0`}
                 width="100%"
                 height="100%"
                 style={{ border: "none" }}
@@ -555,43 +449,21 @@ export default function DocumentsPage() {
               />
             ) : (
               <Box
+                component="img"
+                src={previewModal.url}
+                alt="Document View"
                 sx={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  objectFit: "contain",
                   p: 2,
                 }}
-              >
-                <Box
-                  component="img"
-                  src={previewModal.url}
-                  alt="Document Thumbnail View"
-                  sx={{
-                    maxWidth: "100%",
-                    maxHeight: "100%",
-                    objectFit: "contain",
-                    userSelect: "none",
-                    pointerEvents: "none",
-                    // Hardware-accelerated matrix overrides
-                    transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                    transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                  }}
-                />
-              </Box>
+              />
             )
           ) : null}
         </DialogContent>
-
-        {/* Actions Footer */}
         <DialogActions
-          sx={{
-            p: 2,
-            borderTop: "1px solid rgba(195, 198, 214, 0.4)",
-            gap: 1,
-            backgroundColor: "#ffffff",
-          }}
+          sx={{ p: 2, borderTop: "1px solid rgba(195, 198, 214, 0.4)", gap: 1 }}
         >
           <Button
             onClick={handleClosePreview}

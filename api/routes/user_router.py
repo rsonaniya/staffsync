@@ -8,6 +8,7 @@ from auth.oauth2 import get_current_user
 from auth.security import verify_onboarding_permissions
 from db.database import get_db
 from db.db_leave_policy import get_db_leave_policy_by_id
+from db.db_locations import get_db_location_by_id
 from db.db_shift import get_shift_by_id
 from db.db_user import (
     create_db_user,
@@ -140,7 +141,12 @@ def create_user_emp_details(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"No active shift found with the given shift id {request.shift_id}",
         )
-
+    current_location = get_db_location_by_id(request.location_id, db)
+    if not current_location:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No office location with the given location id {request.location_id}",
+        )
     existing_user.onboarding_step = 2
     return create_db_user_emp_details(id, request, db)
 
@@ -234,8 +240,7 @@ def create_user_documents(
     )
     return {
         "message": "Documents uploaded successfully",
-        "Password_set_token": password_set_token,
-    }  # placeholder response, will be replaced by a proper response
+    }
 
 
 @router.post("/set-password")

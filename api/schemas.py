@@ -46,6 +46,7 @@ class UserCreateRequest(BaseModel):
             raise ValueError(
                 f"'{v}' is not a valid IANA timezone. Please provide a standard value like 'Asia/Kolkata' or 'UTC'."
             )
+        return v
 
     emergency_contact_name: str = Field(
         ...,
@@ -215,6 +216,9 @@ class UserEmploymentDetailsCreateRequest(BaseModel):
     )
     leave_policy_id: int = Field(..., description="A valid Leave policy ID")
     shift_id: int = Field(..., description="A valid Shift ID")
+    location_id: int = Field(
+        ..., description="A valid Location ID where the employee works"
+    )
     model_config = {"from_attributes": True}
 
 
@@ -222,6 +226,7 @@ class UserEmploymentDetailsResponse(UserEmploymentDetailsCreateRequest):
     id: int
     user_id: int
     shift: Optional["ShiftResponse"] = None
+    location: Optional["LocationResponse"] = None
 
 
 class UserPayrollAndBankCreateRequest(BaseModel):
@@ -373,3 +378,78 @@ class ShiftResponse(ShiftCreateRequest):
 
 class UserForgotPasswordRequest(BaseModel):
     email: EmailStr = Field(..., description="Unique corporate email")
+
+
+class LocationCreateRequest(BaseModel):
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=250,
+        description="Actual office name (e.g,'Indore Office 1')",
+    )
+    city: str = Field(
+        ...,
+        min_length=2,
+        max_length=250,
+        description="City of the office(e.g,'Indore')",
+    )
+    address: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Actual office physical address (e.g,'123,Vijay Nagar Indore')",
+    )
+    state: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        description="State for regional holiday mapping",
+    )
+    country: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+        description="Country for national laws and holidays",
+    )
+    timezone: str = Field(
+        ..., description="Standard IANA Timezone (e.g,'Asia/Kolkata')"
+    )
+    is_active: bool = Field(True, description="Flag for active location")
+    model_config = {"from_attributes": True}
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_iana_timezone(cls, v: str) -> str:
+        if v not in available_timezones():
+            raise ValueError(
+                f"'{v}' is not a valid IANA timezone. Please provide a standard value like 'Asia/Kolkata' or 'UTC'."
+            )
+        return v
+
+
+class LocationResponse(LocationCreateRequest):
+    id: int
+
+
+class HolidayCreateRequest(BaseModel):
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=250,
+        description="name of the holiday (e.g.,'Diwali')",
+    )
+    applicable_date: date = Field(
+        ..., description="The exact date of the holiday in YYYY-MM-DD format"
+    )
+    locations_ids: list[int] = Field(
+        ..., min_length=1, description="List of Location IDs where this holiday applies"
+    )
+    is_active: bool = Field(True, description="Flag for active holiday")
+    model_config = {"from_attributes": True}
+
+
+class HolidayResponse(BaseModel):
+    id: int
+    name: str
+    applicable_date: date
+    is_active: bool
+    locations: list[LocationResponse] = []

@@ -106,6 +106,7 @@ def create_db_user_emp_details(
         leave_policy_id=request.leave_policy_id,
         user_id=id,
         shift_id=request.shift_id,
+        location_id=request.location_id,
     )
     db.add(new_user_emp_details)
     db.commit()

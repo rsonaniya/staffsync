@@ -16,8 +16,12 @@ import {
   TextField,
   Typography,
   Link,
-  Snackbar, // <-- Added for toaster
-  Alert, // <-- Added for toaster look
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   EmailOutlined,
@@ -26,10 +30,15 @@ import {
   VisibilityOff,
   Domain,
   ArrowForward,
+  MailOutlineOutlined,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { axiosInstance } from "../api/axiosInstance";
+
+// ==========================================
+// 1. TYPES & SCHEMAS
+// ==========================================
 
 type LoginFormInputs = {
   email: string;
@@ -37,11 +46,30 @@ type LoginFormInputs = {
   rememberMe: boolean;
 };
 
+type ForgotPasswordFormInputs = {
+  forgotEmail: string;
+};
+
+const inputStyles = {
+  "& .MuiOutlinedInput-root": {
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#737685" },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#003d9b",
+    },
+  },
+};
+
+// ==========================================
+// 2. MAIN LOGIN COMPONENT
+// ==========================================
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
-  // TOASTER STATE SYSTEM
+  // Unified Notification Toast State
   const [toast, setToast] = useState<{
     open: boolean;
     message: string;
@@ -61,18 +89,26 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  // React Hook Form implementation
+  // Login Form Registration
   const {
-    register,
-    handleSubmit,
-    formState: { errors },
+    register: loginRegister,
+    handleSubmit: handleLoginSubmit,
+    formState: { errors: loginErrors },
+    getValues: getLoginValues,
   } = useForm<LoginFormInputs>({
-    defaultValues: {
-      email: "",
-      password: "",
-      rememberMe: false,
-    },
-    mode: "onTouched", // Validates automatically when fields are blurred
+    defaultValues: { email: "", password: "", rememberMe: false },
+    mode: "onTouched",
+  });
+
+  // Decoupled Forgot Password Form Registration
+  const {
+    register: forgotRegister,
+    handleSubmit: handleForgotSubmit,
+    formState: { errors: forgotErrors },
+    reset: resetForgotForm,
+  } = useForm<ForgotPasswordFormInputs>({
+    defaultValues: { forgotEmail: "" },
+    mode: "onTouched",
   });
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -88,9 +124,21 @@ export default function LoginPage() {
     setToast((prev) => ({ ...prev, open: false }));
   };
 
-  const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
-    setIsSubmitting(true);
+  // Open Forgot Modal and intelligently pre-fill email if entered on primary login line
+  const handleOpenForgotModal = () => {
+    const currentEmailValue = getLoginValues("email");
+    resetForgotForm({ forgotEmail: currentEmailValue || "" });
+    setIsForgotModalOpen(true);
+  };
 
+  const handleCloseForgotModal = () => {
+    setIsForgotModalOpen(false);
+    resetForgotForm();
+  };
+
+  // Primary Login Submission Pipeline
+  const onLoginSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
+    setIsSubmitting(true);
     try {
       const params = new URLSearchParams();
       params.append("username", data.email);
@@ -106,7 +154,6 @@ export default function LoginPage() {
         headers: { Authorization: `Bearer ${access_token}` },
       });
 
-      // Trigger a success toast just before redirecting
       setToast({
         open: true,
         message: "Logged in successfully! Redirecting...",
@@ -118,7 +165,6 @@ export default function LoginPage() {
       }, 1000);
     } catch (err: any) {
       console.error("Login sequence error:", err);
-      // Trigger error toaster dynamically based on backend message
       setToast({
         open: true,
         message:
@@ -128,6 +174,44 @@ export default function LoginPage() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Forgot Password API Endpoint Handler (/user/forgot-password)
+  const onForgotSubmit: SubmitHandler<ForgotPasswordFormInputs> = async (
+    data,
+  ) => {
+    setIsForgotSubmitting(true);
+    try {
+      const response = await axiosInstance.post("/user/forgot-password", {
+        email: data.forgotEmail.trim(),
+      });
+
+      // Leverages uniform response safely to block user-enumeration hacks
+      setToast({
+        open: true,
+        message:
+          response.data?.message ||
+          "If you are registered with us, you will receive an email for password reset link",
+        severity: "success",
+      });
+
+      // Enterprise Grace Period Lifecycle Redirect
+      setTimeout(() => {
+        handleCloseForgotModal();
+      }, 3000);
+    } catch (err: any) {
+      console.error("Forgot password recovery processing exception:", err);
+      const errorDetail = err.response?.data?.detail;
+      setToast({
+        open: true,
+        message: Array.isArray(errorDetail)
+          ? errorDetail[0]?.msg
+          : errorDetail || "Failed to process password recovery request.",
+        severity: "error",
+      });
+    } finally {
+      setIsForgotSubmitting(false);
     }
   };
 
@@ -176,7 +260,7 @@ export default function LoginPage() {
       {/* GLOBAL TOASTER COMPONENT */}
       <Snackbar
         open={toast.open}
-        autoHideDuration={5000}
+        autoHideDuration={6000}
         onClose={handleCloseToast}
         anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
@@ -231,8 +315,8 @@ export default function LoginPage() {
               </Typography>
             </Stack>
 
-            {/* Login Form with useForm validations natively attached */}
-            <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            {/* Login Form */}
+            <form onSubmit={handleLoginSubmit(onLoginSubmit)} noValidate>
               <Stack spacing={2}>
                 {/* Email Field */}
                 <Box>
@@ -254,15 +338,16 @@ export default function LoginPage() {
                     placeholder="name@company.com"
                     variant="outlined"
                     type="email"
-                    {...register("email", {
+                    sx={inputStyles}
+                    {...loginRegister("email", {
                       required: "Email is required",
                       pattern: {
                         value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
                         message: "Please enter a valid work email",
                       },
                     })}
-                    error={!!errors.email}
-                    helperText={errors.email?.message}
+                    error={!!loginErrors.email}
+                    helperText={loginErrors.email?.message}
                     slotProps={{
                       input: {
                         startAdornment: (
@@ -275,19 +360,38 @@ export default function LoginPage() {
                   />
                 </Box>
 
-                {/* Password Field */}
+                {/* Password Field with Inline Forgot Link Wrapper */}
                 <Box>
-                  <Typography
-                    variant="caption"
+                  <Stack
+                    direction="row"
                     sx={{
-                      fontWeight: 500,
-                      color: "text.secondary",
-                      display: "block",
                       mb: 0.5,
+                      alignItems: "center",
+                      justifyContent: "space-between",
                     }}
                   >
-                    Password
-                  </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 500, color: "text.secondary" }}
+                    >
+                      Password
+                    </Typography>
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      underline="hover"
+                      onClick={handleOpenForgotModal}
+                      disabled={isSubmitting}
+                      sx={{
+                        color: "#003d9b",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Forgot Password?
+                    </Link>
+                  </Stack>
                   <TextField
                     fullWidth
                     id="password"
@@ -295,15 +399,16 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     variant="outlined"
                     type={showPassword ? "text" : "password"}
-                    {...register("password", {
+                    sx={inputStyles}
+                    {...loginRegister("password", {
                       required: "Password is required",
                       minLength: {
                         value: 6,
                         message: "Password must be at least 6 characters",
                       },
                     })}
-                    error={!!errors.password}
-                    helperText={errors.password?.message}
+                    error={!!loginErrors.password}
+                    helperText={loginErrors.password?.message}
                     slotProps={{
                       input: {
                         startAdornment: (
@@ -339,7 +444,7 @@ export default function LoginPage() {
                     <Checkbox
                       color="primary"
                       disabled={isSubmitting}
-                      {...register("rememberMe")}
+                      {...loginRegister("rememberMe")}
                     />
                   }
                   label={
@@ -364,9 +469,7 @@ export default function LoginPage() {
                     fontWeight: 600,
                     textTransform: "none",
                     fontSize: "0.875rem",
-                    "&:hover": {
-                      backgroundColor: "#0040a2",
-                    },
+                    "&:hover": { backgroundColor: "#0040a2" },
                   }}
                 >
                   {isSubmitting ? "Authenticating..." : "Login to Portal"}
@@ -401,6 +504,104 @@ export default function LoginPage() {
           </Typography>
         </Box>
       </Container>
+
+      {/* ==========================================
+        3. ENTERPRISE FORGOT PASSWORD MODAL OVERLAY
+       ========================================== */}
+      <Dialog
+        open={isForgotModalOpen}
+        onClose={handleCloseForgotModal}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{ paper: { sx: { borderRadius: 3, p: 1 } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
+          Reset Account Password
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mt: 0.5, fontWeight: 400 }}
+          >
+            Enter your verification email to obtain a single-use credential
+            recovery string.
+          </Typography>
+        </DialogTitle>
+
+        <form onSubmit={handleForgotSubmit(onForgotSubmit)} noValidate>
+          <DialogContent sx={{ pb: 3, pt: 1 }}>
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 500,
+                  color: "text.secondary",
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                Work Email Address *
+              </Typography>
+              <TextField
+                fullWidth
+                id="forgotEmail"
+                disabled={isForgotSubmitting}
+                placeholder="name@company.com"
+                variant="outlined"
+                type="email"
+                sx={inputStyles}
+                {...forgotRegister("forgotEmail", {
+                  required:
+                    "Registered workspace email is required to push resets",
+                  pattern: {
+                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                    message: "Please enter a valid work email",
+                  },
+                })}
+                error={!!forgotErrors.forgotEmail}
+                helperText={forgotErrors.forgotEmail?.message}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MailOutlineOutlined sx={{ color: "action.active" }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+            <Button
+              onClick={handleCloseForgotModal}
+              disabled={isForgotSubmitting}
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                color: "text.secondary",
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disableElevation
+              disabled={isForgotSubmitting}
+              sx={{
+                backgroundColor: "#003d9b",
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+                "&:hover": { backgroundColor: "#0052cc" },
+              }}
+            >
+              {isForgotSubmitting ? "Processing..." : "Send Reset Link"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Box>
   );
 }
