@@ -10,7 +10,6 @@ import AttendancePage from "./pages/AttendancePage";
 import CompanyHolidaysPage from "./pages/CompanyHolidaysPage";
 import LeavesPage from "./pages/LeavesPage";
 import MyRequestsPage from "./pages/MyRequestsPage";
-import DocumentsPage from "./pages/DocumentsPage";
 import PayslipsPage from "./pages/PayslipsPage";
 import EmployeesDirectoryPage from "./pages/EmployeesDirectoryPage";
 import AddEmployeeWizard from "./components/AddEmployeeWizard";
@@ -24,6 +23,9 @@ import { ToastProvider } from "./context/ToastContext";
 import ShiftsPage from "./pages/ShiftsPage";
 import LocationsPage from "./pages/LocationsPage";
 import ManageHolidaysPage from "./pages/ManageHolidaysPage";
+import EmploymentDetailsPage from "./pages/EmploymentDetailsPage";
+import PayrollDetailsPage from "./pages/PayrollDetailsPage";
+import EmployeeDocumentsPage from "./pages/EmployeeDocumentsPage";
 
 // ==========================================
 // PROTECTED ROUTE COMPONENT (Role Enforcement)
@@ -88,18 +90,49 @@ export default function App() {
               <Route path="holidays" element={<CompanyHolidaysPage />} />
               <Route path="leaves" element={<LeavesPage />} />
               <Route path="requests" element={<MyRequestsPage />} />
-              <Route path="documents" element={<DocumentsPage />} />
               <Route path="payslips" element={<PayslipsPage />} />
+              <Route
+                path="/my-profile/personal"
+                element={<AddEmployeeWizard />}
+              />
+              <Route
+                path="/my-profile/employment"
+                element={<EmploymentDetailsPage />}
+              />
+              <Route
+                path="/my-profile/payroll"
+                element={<PayrollDetailsPage />}
+              />
+              <Route
+                path="/my-profile/documents"
+                element={<EmployeeDocumentsPage />}
+              />
 
               {/* HR / Admin Operational Roles Only */}
               <Route
                 element={
                   <ProtectedRoute
-                    allowedRoles={["ADMIN", "HR", "HR_MANAGER"]}
+                    allowedRoles={["ADMIN", "HR", "HR_MANAGER", "MANAGER"]}
                   />
                 }
               >
                 <Route path="employees/new" element={<AddEmployeeWizard />} />
+                <Route
+                  path="employees/:id/edit"
+                  element={<AddEmployeeWizard />}
+                />
+                <Route
+                  path="employees/:id/employment"
+                  element={<EmploymentDetailsPage />}
+                />
+                <Route
+                  path="employees/:id/payroll"
+                  element={<PayrollDetailsPage />}
+                />
+                <Route
+                  path="employees/:id/documents"
+                  element={<EmployeeDocumentsPage />}
+                />
               </Route>
 
               {/* Management & Administration Cross-Section */}

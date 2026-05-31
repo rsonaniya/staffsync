@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -8,6 +9,7 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
+  Collapse,
 } from "@mui/material";
 import {
   DashboardOutlined,
@@ -15,7 +17,6 @@ import {
   EventOutlined,
   EventBusyOutlined,
   AssignmentIndOutlined,
-  DescriptionOutlined,
   PaymentsOutlined,
   SettingsOutlined,
   HelpOutlined,
@@ -24,11 +25,18 @@ import {
   SettingsSuggestOutlined,
   GavelOutlined,
   PlaylistAddCheckOutlined,
-  AccessTimeOutlined, // Added for Shifts configuration mapping
-  FmdGoodOutlined, // Added for Locations configuration mapping
-  CalendarMonthOutlined, // Added for Holidays management mapping
+  AccessTimeOutlined,
+  FmdGoodOutlined,
+  CalendarMonthOutlined,
+  ExpandLess,
+  ExpandMore,
+  AccountCircleOutlined,
+  BadgeOutlined,
+  WorkspacePremiumOutlined,
+  AccountBalanceOutlined,
+  DescriptionOutlined,
 } from "@mui/icons-material";
-import { useAuth } from "../context/AuthContext"; // Import auth hook to check permissions
+import { useAuth } from "../context/AuthContext";
 
 const SIDEBAR_WIDTH = 280;
 
@@ -44,8 +52,31 @@ const MAIN_NAV_ITEMS = [
   { text: "Company Holidays", icon: <EventOutlined />, path: "/holidays" },
   { text: "Leaves", icon: <EventBusyOutlined />, path: "/leaves" },
   { text: "My Requests", icon: <AssignmentIndOutlined />, path: "/requests" },
-  { text: "Documents", icon: <DescriptionOutlined />, path: "/documents" },
   { text: "Payslips", icon: <PaymentsOutlined />, path: "/payslips" },
+];
+
+// 🚀 NEW: Dedicated Profile Navigation for Employees
+const PROFILE_NAV_ITEMS = [
+  {
+    text: "Personal Details",
+    icon: <BadgeOutlined />,
+    path: "/my-profile/personal",
+  },
+  {
+    text: "Employment Setup",
+    icon: <WorkspacePremiumOutlined />,
+    path: "/my-profile/employment",
+  },
+  {
+    text: "Bank & Statutory",
+    icon: <AccountBalanceOutlined />,
+    path: "/my-profile/payroll",
+  },
+  {
+    text: "My Documents",
+    icon: <DescriptionOutlined />,
+    path: "/my-profile/documents",
+  },
 ];
 
 const ADMIN_NAV_ITEMS = [
@@ -53,7 +84,6 @@ const ADMIN_NAV_ITEMS = [
   { text: "Approvals", icon: <FactCheckOutlined />, path: "/approvals" },
 ];
 
-// UPDATED: Added Shifts, Locations, and Holidays configuration items cleanly
 const CONFIG_NAV_ITEMS = [
   {
     text: "Leave Types",
@@ -66,20 +96,12 @@ const CONFIG_NAV_ITEMS = [
     icon: <PlaylistAddCheckOutlined />,
     path: "/policy-rules",
   },
-  {
-    text: "Shifts",
-    icon: <AccessTimeOutlined />,
-    path: "/shifts",
-  },
-  {
-    text: "Locations",
-    icon: <FmdGoodOutlined />,
-    path: "/locations",
-  },
+  { text: "Shifts", icon: <AccessTimeOutlined />, path: "/shifts" },
+  { text: "Locations", icon: <FmdGoodOutlined />, path: "/locations" },
   {
     text: "Holidays",
     icon: <CalendarMonthOutlined />,
-    path: "/manage-holidays", // Mapped to a distinct admin management path to avoid colliding with user holiday views
+    path: "/manage-holidays",
   },
 ];
 
@@ -91,9 +113,13 @@ const BOTTOM_NAV_ITEMS = [
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth(); // Destructure currently logged in user state
+  const { user } = useAuth();
 
-  // Check if current agent has global administrative permissions
+  // --- Accordion Open/Close Trackers ---
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(true); // Default open for easy access
+  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(true);
+  const [isConfigOpen, setIsConfigOpen] = useState<boolean>(true);
+
   const isSystemManager = user?.role === "ADMIN" || user?.role === "HR_MANAGER";
 
   const renderNavItem = (item: NavItem) => {
@@ -132,10 +158,7 @@ export default function Sidebar() {
           }}
         >
           <ListItemIcon
-            sx={{
-              minWidth: 40,
-              color: isActive ? "#003d9b" : "#434654",
-            }}
+            sx={{ minWidth: 40, color: isActive ? "#003d9b" : "#434654" }}
           >
             {item.icon}
           </ListItemIcon>
@@ -190,14 +213,14 @@ export default function Sidebar() {
             fontWeight: 700,
           }}
         >
-          E
+          S
         </Box>
         <Box>
           <Typography
             variant="h6"
             sx={{ fontWeight: 700, color: "#003d9b", lineHeight: 1.2 }}
           >
-            EMS Portal
+            StaffSync
           </Typography>
           <Typography
             variant="caption"
@@ -210,18 +233,29 @@ export default function Sidebar() {
 
       {/* Navigation Streams */}
       <Box sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
+        {/* Core Main Paths */}
         <List sx={{ p: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {MAIN_NAV_ITEMS.map(renderNavItem)}
         </List>
 
-        {/* Administration Operational Section */}
-        {user &&
-          ["ADMIN", "HR", "HR_MANAGER", "MANAGER"].includes(user.role) && (
-            <Box sx={{ mt: 4, mb: 1 }}>
+        {/* 🚀 NEW: My Profile Collapsible Section */}
+        {user && (
+          <Box sx={{ mt: 3, mb: 0.5 }}>
+            <Box
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 2,
+                py: 1,
+                cursor: "pointer",
+                borderRadius: 1.5,
+                "&:hover": { backgroundColor: "rgba(231, 232, 234, 0.4)" },
+              }}
+            >
               <Typography
                 sx={{
-                  px: 2,
-                  py: 0.5,
                   fontSize: "0.6875rem",
                   fontWeight: 700,
                   color: "#737685",
@@ -229,8 +263,16 @@ export default function Sidebar() {
                   textTransform: "uppercase",
                 }}
               >
-                Administration
+                My Profile
               </Typography>
+              {isProfileOpen ? (
+                <ExpandLess sx={{ fontSize: 16, color: "#737685" }} />
+              ) : (
+                <ExpandMore sx={{ fontSize: 16, color: "#737685" }} />
+              )}
+            </Box>
+
+            <Collapse in={isProfileOpen} timeout="auto" unmountOnExit>
               <List
                 sx={{
                   p: 0,
@@ -240,37 +282,110 @@ export default function Sidebar() {
                   mt: 0.5,
                 }}
               >
-                {ADMIN_NAV_ITEMS.map(renderNavItem)}
+                {PROFILE_NAV_ITEMS.map(renderNavItem)}
               </List>
+            </Collapse>
+          </Box>
+        )}
+
+        {/* Administration Collapsible Section */}
+        {user &&
+          ["ADMIN", "HR", "HR_MANAGER", "MANAGER"].includes(user.role) && (
+            <Box sx={{ mt: 3, mb: 0.5 }}>
+              <Box
+                onClick={() => setIsAdminOpen(!isAdminOpen)}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  px: 2,
+                  py: 1,
+                  cursor: "pointer",
+                  borderRadius: 1.5,
+                  "&:hover": { backgroundColor: "rgba(231, 232, 234, 0.4)" },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: "0.6875rem",
+                    fontWeight: 700,
+                    color: "#737685",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Administration
+                </Typography>
+                {isAdminOpen ? (
+                  <ExpandLess sx={{ fontSize: 16, color: "#737685" }} />
+                ) : (
+                  <ExpandMore sx={{ fontSize: 16, color: "#737685" }} />
+                )}
+              </Box>
+
+              <Collapse in={isAdminOpen} timeout="auto" unmountOnExit>
+                <List
+                  sx={{
+                    p: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0.5,
+                    mt: 0.5,
+                  }}
+                >
+                  {ADMIN_NAV_ITEMS.map(renderNavItem)}
+                </List>
+              </Collapse>
             </Box>
           )}
-        {/* System Configuration Block (Exclusively for ADMIN and HR_MANAGER) */}
+
+        {/* System Configuration Collapsible Section */}
         {isSystemManager && (
-          <Box sx={{ mt: 4, mb: 1 }}>
-            <Typography
+          <Box sx={{ mt: 3, mb: 0.5 }}>
+            <Box
+              onClick={() => setIsConfigOpen(!isConfigOpen)}
               sx={{
-                px: 2,
-                py: 0.5,
-                fontSize: "0.6875rem",
-                fontWeight: 700,
-                color: "#737685",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
-              System Configuration
-            </Typography>
-            <List
-              sx={{
-                p: 0,
                 display: "flex",
-                flexDirection: "column",
-                gap: 0.5,
-                mt: 0.5,
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 2,
+                py: 1,
+                cursor: "pointer",
+                borderRadius: 1.5,
+                "&:hover": { backgroundColor: "rgba(231, 232, 234, 0.4)" },
               }}
             >
-              {CONFIG_NAV_ITEMS.map(renderNavItem)}
-            </List>
+              <Typography
+                sx={{
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  color: "#737685",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                }}
+              >
+                System Configuration
+              </Typography>
+              {isConfigOpen ? (
+                <ExpandLess sx={{ fontSize: 16, color: "#737685" }} />
+              ) : (
+                <ExpandMore sx={{ fontSize: 16, color: "#737685" }} />
+              )}
+            </Box>
+
+            <Collapse in={isConfigOpen} timeout="auto" unmountOnExit>
+              <List
+                sx={{
+                  p: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0.5,
+                  mt: 0.5,
+                }}
+              >
+                {CONFIG_NAV_ITEMS.map(renderNavItem)}
+              </List>
+            </Collapse>
           </Box>
         )}
       </Box>
@@ -286,9 +401,7 @@ export default function Sidebar() {
                   borderRadius: 2,
                   py: 1,
                   px: 2,
-                  "&:hover": {
-                    backgroundColor: "rgba(231, 232, 234, 0.5)",
-                  },
+                  "&:hover": { backgroundColor: "rgba(231, 232, 234, 0.5)" },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 40, color: "#434654" }}>
@@ -297,12 +410,7 @@ export default function Sidebar() {
                 <ListItemText
                   primary={item.text}
                   slotProps={{
-                    primary: {
-                      sx: {
-                        fontSize: "0.875rem",
-                        color: "#434654",
-                      },
-                    },
+                    primary: { sx: { fontSize: "0.875rem", color: "#434654" } },
                   }}
                 />
               </ListItemButton>

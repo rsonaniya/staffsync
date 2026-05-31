@@ -9,6 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, profile: any) => void;
   logout: () => void;
+  updateUserProfile: (profile: any) => void; // 🚀 NEW: Update global user state
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,7 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // Validate token against backend to ensure it's still alive
         const response = await axiosInstance.get("/auth/me", {
           headers: { Authorization: `Bearer ${storedToken}` },
         });
@@ -39,12 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(response.data);
         localStorage.setItem("user_profile", JSON.stringify(response.data));
 
-        // If user manually navigates to login while already authenticated, kick them to dashboard
         if (window.location.pathname === "/login") {
           navigate("/dashboard");
         }
       } catch (err) {
-        // Interceptor cleans tokens out if the API call returns 401
         console.error("Token verification failed:", err);
       } finally {
         setIsLoading(false);
@@ -70,9 +68,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate("/login");
   };
 
+  // 🚀 NEW: Dynamically update user state after a profile picture upload or patch
+  const updateUserProfile = (profile: any) => {
+    localStorage.setItem("user_profile", JSON.stringify(profile));
+    setUser(profile);
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!user, isLoading, login, logout }}
+      value={{
+        user,
+        token,
+        isAuthenticated: !!user,
+        isLoading,
+        login,
+        logout,
+        updateUserProfile,
+      }}
     >
       {!isLoading && children}
     </AuthContext.Provider>

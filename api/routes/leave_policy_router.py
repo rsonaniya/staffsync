@@ -39,7 +39,7 @@ def create_leave_policy(
 
 @router.get("/", response_model=list[LeavePolicyResponse])
 def get_all_leave_policies(db=Depends(get_db), current_user=Depends(get_current_user)):
-    if current_user.role not in [UserRole.ADMIN, UserRole.HR_MANAGER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.HR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"A user with Role {current_user.role.value} is not permitted to see internal policy",

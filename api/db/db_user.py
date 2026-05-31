@@ -201,3 +201,17 @@ def get_db_active_managers(db: Session):
         )
         .all()
     )
+
+
+def get_db_user_docs(id: int, db: Session):
+    return db.query(UserDocumentsModel).filter(UserDocumentsModel.user_id == id).all()
+
+
+def get_db_all_users(visible_roles: list[UserRole], db: Session):
+    return db.query(UserModel).filter(UserModel.role.in_(visible_roles)).all()
+
+
+def update_db_user(db: Session, user: UserModel):
+    db.commit()
+    db.refresh(user)
+    return user

@@ -1,11 +1,19 @@
 from datetime import date, datetime, timedelta, timezone
 import secrets
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from auth.oauth2 import get_current_user
-from auth.security import verify_onboarding_permissions
+from auth.security import get_visible_roles, verify_onboarding_permissions
 from db.database import get_db
 from db.db_leave_policy import get_db_leave_policy_by_id
 from db.db_locations import get_db_location_by_id
@@ -16,11 +24,14 @@ from db.db_user import (
     create_db_user_emp_details,
     create_db_user_payroll_bank_details,
     get_db_active_managers,
+    get_db_all_users,
     get_db_user_by_email,
     get_db_user_by_userid,
+    get_db_user_docs,
     get_db_user_emp_details_by_userid,
     get_db_user_payroll_bank_by_userid,
     initialize_employee_leaves,
+    update_db_user,
 )
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel, UserRole
@@ -29,6 +40,7 @@ from schemas import (
     UserCreateRequest,
     UserDocumentCreateRequest,
     UserDocumentInternal,
+    UserDocumentResponse,
     UserEmploymentDetailsCreateRequest,
     UserEmploymentDetailsResponse,
     UserForgotPasswordRequest,
@@ -42,6 +54,13 @@ import cloudinary.uploader
 from utils.email import send_account_activation_email, send_reset_password_email
 
 router = APIRouter(prefix="/user", tags=["user"])
+
+
+@router.get("/manager-lookup", response_model=list[ManagerLookUpResponse])
+def get_namager_list(
+    db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    return get_db_active_managers(db)
 
 
 @router.post("/seed-user")  # temp endpoint for creating an HR in DB
@@ -93,6 +112,37 @@ def create_user(
     verify_onboarding_permissions(current_user.role, request.role)
     user = create_db_user(request, db)
     return user
+
+
+@router.get("/", response_model=list[UserResponse])
+def get_all_users(
+    db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    if current_user.role == UserRole.EMPLOYEE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"A user with role {current_user.role.value} is not allowed to see all employees",
+        )
+    visible_roles = get_visible_roles(current_user.role)
+    users = get_db_all_users(visible_roles, db)
+    return users
+
+
+@router.get("/{id}", response_model=UserResponse)
+def get_user_by_id(id: int, db=Depends(get_db), current_user=Depends(get_current_user)):
+    target_user_by_id = get_db_user_by_userid(id, db)
+    if not target_user_by_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    allowed_roles = get_visible_roles(current_user.role)
+    if target_user_by_id.role not in allowed_roles and id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your role ({current_user.role.value}) does not have permission to view this user.",
+        )
+    return target_user_by_id
 
 
 @router.post("/employment-details/{id}", response_model=UserEmploymentDetailsResponse)
@@ -151,6 +201,34 @@ def create_user_emp_details(
     return create_db_user_emp_details(id, request, db)
 
 
+@router.get("/employment-details/{id}", response_model=UserEmploymentDetailsResponse)
+def get_user_emp_details(
+    id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    target_user = get_db_user_by_userid(id, db)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    allowed_roles = get_visible_roles(current_user.role)
+    if target_user.role not in allowed_roles and id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your role ({current_user.role.value}) does not have permission to view this info.",
+        )
+
+    target_emp_details = get_db_user_emp_details_by_userid(id, db)
+    if not target_emp_details:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Employment Details not found for user with user id {id} ",
+        )
+    return target_emp_details
+
+
 @router.post(
     "/payroll-bank-details/{id}", response_model=UserPayrollAndBankCreateResponse
 )
@@ -177,6 +255,35 @@ def create_user_payroll_bank_details(
     return create_db_user_payroll_bank_details(id, request, db)
 
 
+@router.get(
+    "/payroll-bank-details/{id}", response_model=UserPayrollAndBankCreateResponse
+)
+def create_get_user_payroll_and_bank(
+    id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    target_user_by_id = get_db_user_by_userid(id, db)
+    if not target_user_by_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    allowed_roles = get_visible_roles(current_user.role)
+    if target_user_by_id.role not in allowed_roles and id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your role ({current_user.role.value}) does not have permission to view this user.",
+        )
+    existing_payroll_bank_details = get_db_user_payroll_bank_by_userid(id, db)
+    if not existing_payroll_bank_details:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payroll and Bank Details for the user not found",
+        )
+    return existing_payroll_bank_details
+
+
 @router.post("/documents/{id}")
 def create_user_documents(
     id: int,
@@ -192,6 +299,11 @@ def create_user_documents(
             detail="Invalid User Id",
         )
     verify_onboarding_permissions(current_user.role, existing_user.role)
+    if existing_user.onboarding_step >= 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Documents are already upoloaded for this user",
+        )
     if not (
         len(formdata.categories) == len(formdata.files) == len(formdata.display_names)
     ):
@@ -239,8 +351,28 @@ def create_user_documents(
         password_set_token,
     )
     return {
-        "message": "Documents uploaded successfully",
+        "message": "Documents uploaded and Accoount activation email triggered successfully",
     }
+
+
+# need to implement self or role check here as well
+@router.get("/documents/{id}", response_model=list[UserDocumentResponse])
+def get_user_docs(
+    id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    target_user_by_id = get_db_user_by_userid(id, db)
+    if not target_user_by_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    allowed_roles = get_visible_roles(current_user.role)
+    if target_user_by_id.role not in allowed_roles and id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your role ({current_user.role.value}) does not have permission to view this user.",
+        )
+    return get_db_user_docs(id, db)
 
 
 @router.post("/set-password")
@@ -290,6 +422,45 @@ def get_namager_list(
     db: Session = Depends(get_db), current_user=Depends(get_current_user)
 ):
     return get_db_active_managers(db)
+
+
+@router.get("/resend-activation-mail/{id}")
+def create_user_documents(
+    id: int,
+    bg_tasks: BackgroundTasks,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    existing_user = get_db_user_by_userid(id, db)
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, existing_user.role)
+    if (
+        existing_user.account_status != AccountStatus.INVITED
+        or existing_user.onboarding_step != 4
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either Documents are not uploaded or Account is already active",
+        )
+    password_set_token = secrets.token_urlsafe(16)
+    existing_user.password_token = HashPassword.bcrypt(password_set_token)
+    existing_user.password_token_expiry = datetime.now(timezone.utc) + timedelta(
+        hours=24
+    )
+    db.commit()
+    bg_tasks.add_task(
+        send_account_activation_email,
+        existing_user.email,
+        f"{existing_user.first_name} {existing_user.last_name}",
+        password_set_token,
+    )
+    return {
+        "message": "Accoount activation email re-sent successfully",
+    }
 
 
 @router.post("/forgot-password")
@@ -351,3 +522,40 @@ def create_user_password(request: UserPasswordSetRequest, db=Depends(get_db)):
     return {
         "message": "Password has been set successfully, You can login with your email and new password"
     }
+
+
+@router.patch("/upload-profile-pic", response_model=UserResponse)
+def upload_profile_pic(
+    profile_image: UploadFile = File(...),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    profile_image_size = profile_image.size
+    is_size_correct = profile_image_size >= 102400 and profile_image_size <= 5242880
+    if not is_size_correct:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="a valid image file between 100 KB and 5 MB is allowed",
+        )
+    accepted_file_types = ["image/jpeg", "image/png", "image/webp"]
+    if not profile_image.content_type in accepted_file_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JPEG, PNG, and WEBP images are allowed",
+        )
+    if current_user.profile_image_public_id:
+        delete_result = cloudinary.uploader.destroy(
+            current_user.profile_image_public_id
+        )
+        if delete_result.get("result") not in ["ok", "not found"]:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="failed to delete the old profile image",
+            )
+    result = cloudinary.uploader.upload(
+        profile_image.file, folder=f"staffsync/profile-images/{current_user.id}"
+    )
+    current_user.profile_image_url = result.get("secure_url")
+    current_user.profile_image_public_id = result.get("public_id")
+    updated_user = update_db_user(db, current_user)
+    return updated_user

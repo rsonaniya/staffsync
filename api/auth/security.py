@@ -16,6 +16,20 @@ ALLOWED_CREATION_TARGET = {
     ],
 }
 
+VISIBLE_USER_ROLES = {
+    UserRole.EMPLOYEE: [],
+    UserRole.MANAGER: [UserRole.EMPLOYEE],
+    UserRole.HR: [UserRole.EMPLOYEE, UserRole.MANAGER],
+    UserRole.HR_MANAGER: [UserRole.EMPLOYEE, UserRole.MANAGER, UserRole.HR],
+    UserRole.ADMIN: [
+        UserRole.EMPLOYEE,
+        UserRole.MANAGER,
+        UserRole.HR,
+        UserRole.HR_MANAGER,
+        UserRole.ADMIN,
+    ],
+}
+
 
 def verify_onboarding_permissions(current_user_role: UserRole, target_role: UserRole):
     allowed_targets = ALLOWED_CREATION_TARGET.get(current_user_role, [])
@@ -24,3 +38,7 @@ def verify_onboarding_permissions(current_user_role: UserRole, target_role: User
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"access denied: A user with role '{current_user_role.value}' is not allowed to create a '{target_role.value}' account",
         )
+
+
+def get_visible_roles(current_role: UserRole) -> list[UserRole]:
+    return VISIBLE_USER_ROLES.get(current_role, [])
