@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
+import { ArrowBack } from "@mui/icons-material";
 import {
   Box,
   Typography,
@@ -59,6 +60,7 @@ export default function MyPersonalDetailsView() {
   const { showToast } = useToast();
 
   const targetId = id || currentUser?.id;
+  const navigate = useNavigate();
   const isOwnProfile = location.pathname.startsWith("/my-profile");
 
   const [loading, setLoading] = useState(true);
@@ -156,6 +158,22 @@ export default function MyPersonalDetailsView() {
 
   return (
     <Box sx={{ mt: "64px", px: { xs: 2, md: 4, lg: 5 }, pt: 4, pb: 4 }}>
+      {!isOwnProfile && (
+        <Button
+          variant="text"
+          onClick={() => navigate("/employees")}
+          startIcon={<ArrowBack />}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            color: "#434654",
+            mb: 2,
+            ml: -1,
+          }}
+        >
+          Back to Directory
+        </Button>
+      )}
       {/* Header Profile Section */}
       <Stack sx={{ flexDirection: "row", alignItems: "center", gap: 3, mb: 4 }}>
         <Box sx={{ position: "relative" }}>

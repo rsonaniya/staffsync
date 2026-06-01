@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowBack } from "@mui/icons-material";
 import {
   Box,
   Typography,
   Grid,
   CircularProgress,
   Card,
-  CardContent,
+  Button,
   Divider,
   Chip,
 } from "@mui/material";
@@ -47,6 +48,8 @@ export default function MyEmploymentDetailsView() {
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const targetId = id || currentUser?.id;
+  const navigate = useNavigate();
+  const isOwnProfile = location.pathname.startsWith("/my-profile");
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
@@ -131,6 +134,22 @@ export default function MyEmploymentDetailsView() {
 
   return (
     <Box sx={{ mt: "64px", px: { xs: 2, md: 4, lg: 5 }, pt: 4, pb: 4 }}>
+      {!isOwnProfile && (
+        <Button
+          variant="text"
+          onClick={() => navigate("/employees")}
+          startIcon={<ArrowBack />}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            color: "#434654",
+            mb: 2,
+            ml: -1,
+          }}
+        >
+          Back to Directory
+        </Button>
+      )}
       <Typography
         variant="h4"
         sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}

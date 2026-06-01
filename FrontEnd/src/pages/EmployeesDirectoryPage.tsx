@@ -8,7 +8,6 @@ import {
   Chip,
   Grid,
   IconButton,
-  InputAdornment,
   Menu,
   MenuItem,
   Stack,
@@ -18,7 +17,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
   CircularProgress,
   Divider,
@@ -28,21 +26,23 @@ import {
   Groups,
   GroupAdd,
   WorkOff,
-  Search,
-  FilterList,
-  FileDownload,
   MoreVert,
   BadgeOutlined,
   PaymentsOutlined,
   FolderOpenOutlined,
   EditOutlined,
-  VisibilityOutlined, // 🚀 Added for View-Only mode
+  VisibilityOutlined,
   MarkEmailReadOutlined,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../api/axiosInstance";
 import { useToast } from "../context/ToastContext";
-import { useAuth } from "../context/AuthContext"; // 🚀 Added to get current user
+import { useAuth } from "../context/AuthContext";
+// 🚀 IMPORTING THE NEW UNIVERSAL PERMISSION UTILITIES
+import {
+  checkEditPermission,
+  canCreateNewEmployee,
+} from "../utils/permissions";
 
 // ==========================================
 // 1. STRICT DATA TYPE DEFINITIONS
@@ -55,7 +55,6 @@ export type DocumentCategory =
   | "EMPLOYMENT"
   | "FINANCIAL"
   | "OTHER";
-
 export type SystemRole =
   | "EMPLOYEE"
   | "MANAGER"
@@ -120,7 +119,7 @@ export default function EmployeesDirectoryPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { user: currentUser } = useAuth(); // 🚀 Pulling current user context
+  const { user: currentUser } = useAuth();
 
   // --- Row Action Menu State ---
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -128,31 +127,19 @@ export default function EmployeesDirectoryPage() {
   const isMenuOpen = Boolean(anchorEl);
 
   // ==========================================
-  // 🚀 ROLE-BASED ACCESS CONTROL (RBAC) HELPERS
+  // 🚀 ROLE-BASED ACCESS CONTROL (RBAC) EVALUATION
   // ==========================================
 
-  // Can the current user globally create new employees?
-  const canGloballyCreate = ["ADMIN", "HR_MANAGER", "HR"].includes(
-    currentUser?.role || "",
-  );
+  // Uses the utility to see if the top-right "Add Employee" button should render
+  const canGloballyCreate = canCreateNewEmployee(currentUser?.role);
 
-  // Can the current user edit the SPECIFIC employee they clicked on?
-  const checkEditPermission = (currentRole?: string, targetRole?: string) => {
-    if (!currentRole || !targetRole) return false;
-    if (currentRole === "ADMIN") return true; // Admin can edit anyone
-    if (currentRole === "HR_MANAGER")
-      return ["EMPLOYEE", "MANAGER", "HR"].includes(targetRole);
-    if (currentRole === "HR")
-      return ["EMPLOYEE", "MANAGER"].includes(targetRole);
-    return false; // Regular managers and employees cannot edit others
-  };
-
+  // Uses the utility to see if the clicked row's 3-dot menu allows editing
   const hasEditPermission = checkEditPermission(
     currentUser?.role,
     selectedEmp?.role,
   );
 
-  // --- Fetch Directory Data with Double-Load Guard Fix ---
+  // --- Fetch Directory Data ---
   useEffect(() => {
     let isCurrentRequestValid = true;
 
@@ -202,31 +189,46 @@ export default function EmployeesDirectoryPage() {
   const handleViewEditPersonal = () => {
     if (!selectedEmp) return;
     handleMenuClose();
-    navigate(`/employees/${selectedEmp.id}/edit`);
+    // 🚀 Smart Routing: If they have edit rights, go to edit mode. Otherwise, go to view mode.
+    if (hasEditPermission) {
+      navigate(`/employees/${selectedEmp.id}/edit`);
+    } else {
+      navigate(`/employees/${selectedEmp.id}/view/personal`);
+    }
   };
 
   const handleActionEmployment = () => {
     if (!selectedEmp) return;
     handleMenuClose();
-    navigate(`/employees/${selectedEmp.id}/employment`);
+    if (hasEditPermission) {
+      navigate(`/employees/${selectedEmp.id}/employment`);
+    } else {
+      navigate(`/employees/${selectedEmp.id}/view/employment`);
+    }
   };
 
   const handleActionPayroll = () => {
     if (!selectedEmp) return;
     handleMenuClose();
-    navigate(`/employees/${selectedEmp.id}/payroll`);
+    if (hasEditPermission) {
+      navigate(`/employees/${selectedEmp.id}/payroll`);
+    } else {
+      navigate(`/employees/${selectedEmp.id}/view/payroll`);
+    }
   };
 
   const handleActionDocuments = () => {
     if (!selectedEmp) return;
     handleMenuClose();
-    navigate(`/employees/${selectedEmp.id}/documents`);
+    if (hasEditPermission) {
+      navigate(`/employees/${selectedEmp.id}/documents`);
+    } else {
+      navigate(`/employees/${selectedEmp.id}/view/documents`);
+    }
   };
 
-  // --- Resend Activation Email Handler ---
   const handleResendActivationLink = async () => {
     if (!selectedEmp) return;
-
     handleMenuClose();
 
     try {
@@ -239,12 +241,10 @@ export default function EmployeesDirectoryPage() {
         "success",
       );
     } catch (error: any) {
-      console.error("Failed to resend activation link:", error);
       const errorDetail = error.response?.data?.detail;
       const errorMessage = Array.isArray(errorDetail)
         ? errorDetail[0]?.msg
         : errorDetail || "Failed to resend the activation email.";
-
       showToast(errorMessage, "error");
     }
   };
@@ -497,7 +497,7 @@ export default function EmployeesDirectoryPage() {
         </Grid>
       </Grid>
 
-      {/* Main Command Center Table Grid Wrapper Layout */}
+      {/* Main Command Center Table */}
       <Card
         variant="outlined"
         sx={{
@@ -669,7 +669,6 @@ export default function EmployeesDirectoryPage() {
           },
         }}
       >
-        {/* 🚀 Dynamic Text & Icon based on Permission */}
         <MenuItem
           onClick={handleViewEditPersonal}
           sx={{ gap: 1.5, fontSize: "0.875rem", py: 1 }}
@@ -758,7 +757,7 @@ export default function EmployeesDirectoryPage() {
             : "View Documents Vault"}
         </MenuItem>
 
-        {/* 🚀 ONLY render Resend Activation if they have Admin/HR Edit powers */}
+        {/* ONLY render Resend Activation if they have Admin/HR Edit powers */}
         {selectedEmp &&
           selectedEmp.onboarding_step === 4 &&
           !selectedEmp.is_email_verified &&

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -34,6 +34,7 @@ import {
   RotateRightOutlined,
   RestartAltOutlined,
   CloseOutlined,
+  ArrowBack,
 } from "@mui/icons-material";
 import { axiosInstance } from "../../api/axiosInstance";
 import { useAuth } from "../../context/AuthContext";
@@ -95,6 +96,8 @@ export default function MyDocumentsView() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
   const targetId = id || currentUser?.id;
+  const navigate = useNavigate();
+  const isOwnProfile = location.pathname.startsWith("/my-profile");
 
   const [loading, setLoading] = useState(true);
   const [docs, setDocs] = useState<any[]>([]);
@@ -180,6 +183,22 @@ export default function MyDocumentsView() {
 
   return (
     <Box sx={{ mt: "64px", px: { xs: 2, md: 4, lg: 5 }, pt: 4, pb: 4 }}>
+      {!isOwnProfile && (
+        <Button
+          variant="text"
+          onClick={() => navigate("/employees")}
+          startIcon={<ArrowBack />}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            color: "#434654",
+            mb: 2,
+            ml: -1,
+          }}
+        >
+          Back to Directory
+        </Button>
+      )}
       <Typography
         variant="h4"
         sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}

@@ -26,6 +26,8 @@ import ManageHolidaysPage from "./pages/ManageHolidaysPage";
 import EmploymentDetailsPage from "./pages/EmploymentDetailsPage";
 import PayrollDetailsPage from "./pages/PayrollDetailsPage";
 import EmployeeDocumentsPage from "./pages/EmployeeDocumentsPage";
+
+// 🚀 IMPORT NEW READ-ONLY VIEW COMPONENTS
 import MyPersonalDetailsView from "./pages/Profile/MyPersonalDetailsView";
 import MyEmploymentDetailsView from "./pages/Profile/MyEmploymentDetailsView";
 import MyPayrollDetailsView from "./pages/Profile/MyPayrollDetailsView";
@@ -95,28 +97,60 @@ export default function App() {
               <Route path="leaves" element={<LeavesPage />} />
               <Route path="requests" element={<MyRequestsPage />} />
               <Route path="payslips" element={<PayslipsPage />} />
+
+              {/* 🚀 SELF-SERVICE ROUTES (Employee looking at themselves) */}
               <Route
-                path="/my-profile/personal"
+                path="my-profile/personal"
                 element={<MyPersonalDetailsView />}
               />
               <Route
-                path="/my-profile/employment"
+                path="my-profile/employment"
                 element={<MyEmploymentDetailsView />}
               />
               <Route
-                path="/my-profile/payroll"
+                path="my-profile/payroll"
                 element={<MyPayrollDetailsView />}
               />
               <Route
-                path="/my-profile/documents"
+                path="my-profile/documents"
                 element={<MyDocumentsView />}
               />
 
-              {/* HR / Admin Operational Roles Only */}
+              {/* Management & Administration Cross-Section */}
               <Route
                 element={
                   <ProtectedRoute
                     allowedRoles={["ADMIN", "HR", "HR_MANAGER", "MANAGER"]}
+                  />
+                }
+              >
+                <Route path="employees" element={<EmployeesDirectoryPage />} />
+                <Route path="approvals" element={<ApprovalsPage />} />
+
+                {/* 🚀 DIRECTORY VIEW ROUTES (Manager/HR reading an employee profile) */}
+                <Route
+                  path="employees/:id/view/personal"
+                  element={<MyPersonalDetailsView />}
+                />
+                <Route
+                  path="employees/:id/view/employment"
+                  element={<MyEmploymentDetailsView />}
+                />
+                <Route
+                  path="employees/:id/view/payroll"
+                  element={<MyPayrollDetailsView />}
+                />
+                <Route
+                  path="employees/:id/view/documents"
+                  element={<MyDocumentsView />}
+                />
+              </Route>
+
+              {/* HR / Admin Operational Roles Only (Active Editing) */}
+              <Route
+                element={
+                  <ProtectedRoute
+                    allowedRoles={["ADMIN", "HR", "HR_MANAGER"]}
                   />
                 }
               >
@@ -139,17 +173,7 @@ export default function App() {
                 />
               </Route>
 
-              {/* Management & Administration Cross-Section */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["ADMIN", "HR", "HR_MANAGER", "MANAGER"]}
-                  />
-                }
-              >
-                <Route path="employees" element={<EmployeesDirectoryPage />} />
-                <Route path="approvals" element={<ApprovalsPage />} />
-              </Route>
+              {/* System Configuration */}
               <Route
                 element={
                   <ProtectedRoute allowedRoles={["ADMIN", "HR_MANAGER"]} />
