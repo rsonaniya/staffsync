@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -20,13 +20,7 @@ import {
   Typography,
   Switch,
 } from "@mui/material";
-import {
-  Add,
-  EditOutlined,
-  GavelOutlined,
-  ChevronLeft,
-  ChevronRight,
-} from "@mui/icons-material";
+import { Add, EditOutlined, GavelOutlined } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
 import { axiosInstance } from "../api/axiosInstance";
 import FullScreenLoader from "../components/FullScreenLoader";

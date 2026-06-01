@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -24,8 +24,6 @@ import {
   Add,
   EditOutlined,
   SettingsSuggestOutlined,
-  ChevronLeft,
-  ChevronRight,
 } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
 import { axiosInstance } from "../api/axiosInstance";

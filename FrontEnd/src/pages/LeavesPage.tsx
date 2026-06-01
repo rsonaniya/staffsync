@@ -580,7 +580,7 @@ export default function LeavesPage() {
             <ToggleButtonGroup
               value={dayType}
               exclusive
-              onChange={(e, newVal) => {
+              onChange={(_e, newVal) => {
                 if (newVal) setDayType(newVal);
               }}
               sx={{

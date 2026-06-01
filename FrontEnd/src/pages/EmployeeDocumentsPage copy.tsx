@@ -40,15 +40,11 @@ import {
   RestartAltOutlined,
   CloseOutlined,
   WarningAmberRounded,
-  CheckCircleOutlined, // 🚀 Added for Complete Onboarding Button
-  FolderOpenOutlined, // 🚀 Added for Empty State
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { axiosInstance } from "../api/axiosInstance";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
-// 🚀 IMPORT NEW RBAC UTILITY
-import { checkEditPermission, type SystemRole } from "../utils/permissions";
 
 // ==========================================
 // 1. TYPES & CONSTANTS
@@ -152,16 +148,13 @@ export default function EmployeeDocumentsPage() {
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
 
+  // 🚀 DYNAMIC ROUTING LOGIC: If no ID in URL, fallback to logged-in user
   const targetId = id || currentUser?.id;
   const isOwnProfile = !id;
 
-  // 🚀 RBAC: We use our utility to determine if they can edit this specific user
-  const [fetchedTargetRole, setFetchedTargetRole] = useState<SystemRole | null>(
-    null,
-  );
-  const canEdit = checkEditPermission(
-    currentUser?.role,
-    fetchedTargetRole || undefined,
+  // 🚀 PERMISSION CHECK: Only Admins/HR can modify documents
+  const canEdit = ["ADMIN", "HR", "HR_MANAGER"].includes(
+    currentUser?.role || "",
   );
 
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
@@ -200,39 +193,9 @@ export default function EmployeeDocumentsPage() {
   };
 
   useEffect(() => {
-    if (!targetId) return;
+    if (targetId) fetchExistingDocs();
+  }, [targetId]);
 
-    const initializePage = async () => {
-      try {
-        if (!isOwnProfile) {
-          // Fetch target role for security matrix
-          const userRes = await axiosInstance.get(`/user/${targetId}`);
-          const targetRole = userRes.data.role;
-          setFetchedTargetRole(targetRole);
-
-          if (!checkEditPermission(currentUser?.role, targetRole)) {
-            showToast(
-              "You do not have administrative clearance to edit this profile.",
-              "error",
-            );
-            navigate(`/employees/${targetId}/view/documents`, {
-              replace: true,
-            });
-            return;
-          }
-        } else {
-          setFetchedTargetRole(currentUser?.role || null);
-        }
-
-        await fetchExistingDocs();
-      } catch (error) {
-        showToast("Failed to initialize documents vault.", "error");
-        if (!isOwnProfile) navigate("/employees");
-      }
-    };
-
-    initializePage();
-  }, [targetId, isOwnProfile, currentUser?.role, navigate, showToast]);
   useEffect(() => {
     if (!previewModal.open) {
       setZoom(1);
@@ -254,10 +217,9 @@ export default function EmployeeDocumentsPage() {
 
   const handleConfirmDelete = async () => {
     if (!deleteTargetId) return;
-    const tempId = deleteTargetId; // Capture ID before resetting state
     setDeleteTargetId(null);
     try {
-      await axiosInstance.delete(`/user/documents/${tempId}`);
+      await axiosInstance.delete(`/user/documents/${deleteTargetId}`);
       showToast("Document deleted successfully.", "success");
       fetchExistingDocs();
     } catch (error: any) {
@@ -302,13 +264,7 @@ export default function EmployeeDocumentsPage() {
       );
       showToast("Documents uploaded successfully!", "success");
       setStagedDocs([]);
-
-      // 🚀 REDIRECT TO DIRECTORY AFTER SUCCESSFUL UPLOAD (ONBOARDING COMPLETE)
-      if (!isOwnProfile) {
-        navigate("/employees");
-      } else {
-        fetchExistingDocs(); // Only refresh if the employee is updating their own profile
-      }
+      fetchExistingDocs();
     } catch (error: any) {
       const msg = Array.isArray(error.response?.data?.detail)
         ? error.response.data.detail[0]?.msg
@@ -318,6 +274,7 @@ export default function EmployeeDocumentsPage() {
       setIsUploading(false);
     }
   };
+
   const handleDownloadFile = async (
     e: React.MouseEvent,
     docUrl: string,
@@ -359,13 +316,6 @@ export default function EmployeeDocumentsPage() {
     );
   }
 
-  // 🚀 Final Failsafe
-  if (
-    !isOwnProfile &&
-    !checkEditPermission(currentUser?.role, fetchedTargetRole || undefined)
-  )
-    return null;
-
   return (
     <Box
       sx={{
@@ -378,6 +328,7 @@ export default function EmployeeDocumentsPage() {
         pt: 4,
       }}
     >
+      {/* 🚀 Dynamic Header depending on context */}
       <Stack
         sx={{
           flexDirection: "row",
@@ -586,6 +537,7 @@ export default function EmployeeDocumentsPage() {
                                         <DownloadOutlined fontSize="small" />
                                       </IconButton>
                                     </Tooltip>
+                                    {/* 🚀 ONLY Render Delete if User has Permission */}
                                     {canEdit && (
                                       <Tooltip title="Delete Permanently">
                                         <IconButton
@@ -622,75 +574,26 @@ export default function EmployeeDocumentsPage() {
             {canEdit && <Divider sx={{ mt: 4 }} />}
           </Box>
         ) : (
-          /* 🚀 NEW: Contextual Empty State for Creation Mode */
-          <Box sx={{ mb: 4 }}>
-            {canEdit && !isOwnProfile ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  py: 8,
-                  px: 3,
-                  backgroundColor: "#ffffff",
-                  borderRadius: 3,
-                  border: "2px dashed rgba(195, 198, 214, 0.8)",
-                  textAlign: "center",
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "50%",
-                    backgroundColor: "rgba(0, 61, 155, 0.05)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                    color: "#003d9b",
-                  }}
-                >
-                  <FolderOpenOutlined fontSize="large" />
-                </Box>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}
-                >
-                  Pending Document Verification
-                </Typography>
-                <Typography
-                  variant="body1"
-                  sx={{ color: "text.secondary", maxWidth: 500, mb: 3 }}
-                >
-                  No documents have been uploaded yet. The system requires at
-                  least one verified identity or employment record to dispatch
-                  the account activation email.
-                </Typography>
-              </Box>
-            ) : (
-              <Card
-                variant="outlined"
-                sx={{
-                  borderRadius: 3,
-                  borderColor: "rgba(195, 198, 214, 0.5)",
-                  p: 6,
-                  textAlign: "center",
-                  mb: 4,
-                }}
-              >
-                <Typography variant="body1" color="text.secondary">
-                  {isOwnProfile
-                    ? "No verified documents have been uploaded to your profile yet."
-                    : "No verified documents have been uploaded to this profile yet."}
-                </Typography>
-              </Card>
-            )}
-          </Box>
+          /* Empty State if absolutely no documents exist */
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: 3,
+              borderColor: "rgba(195, 198, 214, 0.5)",
+              p: 6,
+              textAlign: "center",
+              mb: 4,
+            }}
+          >
+            <Typography variant="body1" color="text.secondary">
+              {isOwnProfile
+                ? "No verified documents have been uploaded to your profile yet."
+                : "No verified documents have been uploaded to this profile yet."}
+            </Typography>
+          </Card>
         )}
 
-        {/* STAGE NEW DOCUMENTS (ONLY VISIBLE TO HR/ADMINS) */}
+        {/* 🚀 STAGE NEW DOCUMENTS (ONLY VISIBLE TO HR/ADMINS) */}
         {canEdit && (
           <>
             <Stack
@@ -826,12 +729,7 @@ export default function EmployeeDocumentsPage() {
         )}
       </Box>
 
-      {/* 🚀 DYNAMIC STICKY FOOTER */}
-      {/* 
-          Logic: 
-          - Always shows the "Complete Onboarding" button for admins on other profiles.
-          - Only shows upload button if there are staged docs.
-      */}
+      {/* 🚀 Dynamic Sticky Footer (Only renders if it's the Admin view OR there are staged docs) */}
       {(!isOwnProfile || stagedDocs.length > 0) && (
         <Stack
           sx={{
@@ -867,66 +765,29 @@ export default function EmployeeDocumentsPage() {
             )}
           </Box>
 
-          <Stack direction="row" spacing={2}>
-            {canEdit && stagedDocs.length > 0 && (
-              <Button
-                variant="contained"
-                onClick={handleUploadStagedDocs}
-                disableElevation
-                disabled={isUploading}
-                startIcon={<CloudUploadOutlined />}
-                sx={{
-                  backgroundColor: "#003d9b",
-                  textTransform: "none",
-                  fontWeight: 600,
-                  px: 4,
-                  borderRadius: 2,
-                  "&:hover": { backgroundColor: "#0052cc" },
-                }}
-              >
-                {isUploading ? "Uploading Batch..." : "Upload Staged Documents"}
-              </Button>
-            )}
-
-            {/* 🚀 NEW: Complete Onboarding Button with Validation */}
-            {!isOwnProfile && canEdit && stagedDocs.length === 0 && (
-              <Tooltip
-                title={
-                  existingDocs.length === 0
-                    ? "Upload at least one document to proceed"
-                    : "Finish onboarding sequence"
-                }
-              >
-                <span>
-                  <Button
-                    variant="contained"
-                    disableElevation
-                    disabled={existingDocs.length === 0}
-                    onClick={() => navigate("/employees")}
-                    startIcon={<CheckCircleOutlined />}
-                    sx={{
-                      backgroundColor: "#15803d",
-                      textTransform: "none",
-                      fontWeight: 600,
-                      px: 4,
-                      borderRadius: 2,
-                      "&:hover": { backgroundColor: "#166534" },
-                      "&.Mui-disabled": {
-                        backgroundColor: "rgba(21, 128, 61, 0.4)",
-                        color: "#ffffff",
-                      },
-                    }}
-                  >
-                    Complete Onboarding
-                  </Button>
-                </span>
-              </Tooltip>
-            )}
-          </Stack>
+          {canEdit && stagedDocs.length > 0 && (
+            <Button
+              variant="contained"
+              onClick={handleUploadStagedDocs}
+              disableElevation
+              disabled={isUploading}
+              startIcon={<CloudUploadOutlined />}
+              sx={{
+                backgroundColor: "#003d9b",
+                textTransform: "none",
+                fontWeight: 600,
+                px: 4,
+                borderRadius: 2,
+                "&:hover": { backgroundColor: "#0052cc" },
+              }}
+            >
+              {isUploading ? "Uploading Batch..." : "Upload Staged Documents"}
+            </Button>
+          )}
         </Stack>
       )}
 
-      {/* UPLOAD MODAL & PREVIEW MODALS REMAIN EXACTLY THE SAME */}
+      {/* UPLOAD MODAL & PREVIEW MODALS REMAIN THE SAME */}
       <Dialog
         open={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}

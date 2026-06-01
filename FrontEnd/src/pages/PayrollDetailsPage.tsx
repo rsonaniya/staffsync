@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import {
   Box,
   Button,
@@ -9,23 +10,19 @@ import {
   Stack,
   Divider,
 } from "@mui/material";
-import { ArrowBack, SaveOutlined, EditOutlined } from "@mui/icons-material";
-import { useForm, Controller } from "react-hook-form";
+import { ArrowBack, SaveOutlined, EditOutlined } from "@mui/icons-material"; // 🚀 Added EditOutlined
 import { useNavigate, useParams } from "react-router-dom";
 import { axiosInstance } from "../api/axiosInstance";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+// 🚀 IMPORT NEW RBAC UTILITY
+import { checkEditPermission, type SystemRole } from "../utils/permissions";
 
-// ==========================================
-// 1. TYPES & DATA STRUCTS
-// ==========================================
-
-export interface PayrollBankFormData {
-  annual_ctc: number | "";
-  basic_salary: number | "";
-  hra: number | "";
-  special_allowance: number | "";
-  currency: string;
+interface PayrollFormData {
+  annual_ctc: number;
+  basic_salary: number;
+  hra: number;
+  special_allowance: number;
   bank_name: string;
   account_number: string;
   ifsc: string;
@@ -43,35 +40,28 @@ const inputStyles = {
   "&:after": { borderBottom: "2px solid #003d9b" },
 };
 
-// ==========================================
-// 2. MAIN PAGE COMPONENT
-// ==========================================
-
 export default function PayrollDetailsPage() {
-  const { id } = useParams<{ id: string }>(); // The Employee's User ID
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
-  const targetId = id || currentUser?.id;
 
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
+  const [isExistingRecord, setIsExistingRecord] = useState<boolean>(false);
 
-  const [hasExistingRecord, setHasExistingRecord] = useState<boolean>(false);
+  // 🚀 Added isEditing state matching other active edit pages
   const [isEditing, setIsEditing] = useState<boolean>(false);
-
-  // Permission Check: Can this user edit financial profiles?
-  const canEdit = ["ADMIN", "HR", "HR_MANAGER"].includes(
-    currentUser?.role || "",
+  const [fetchedTargetRole, setFetchedTargetRole] = useState<SystemRole | null>(
+    null,
   );
 
-  const { control, handleSubmit, reset } = useForm<PayrollBankFormData>({
+  const { control, handleSubmit, reset } = useForm<PayrollFormData>({
     defaultValues: {
-      annual_ctc: "",
-      basic_salary: "",
-      hra: "",
-      special_allowance: "",
-      currency: "INR",
+      annual_ctc: 0,
+      basic_salary: 0,
+      hra: 0,
+      special_allowance: 0,
       bank_name: "",
       account_number: "",
       ifsc: "",
@@ -83,88 +73,72 @@ export default function PayrollDetailsPage() {
     mode: "onTouched",
   });
 
-  // 🚀 FETCH EXISTING DATA
   useEffect(() => {
-    const fetchPayrollDetails = async () => {
-      setInitialLoading(true);
-      try {
-        const response = await axiosInstance.get(
-          `/user/payroll-bank-details/${targetId}`,
-        );
-        if (response.data) {
-          const record = response.data;
-          setHasExistingRecord(true);
-          setIsEditing(false); // Lock into View Mode
+    if (!id) return;
 
-          reset({
-            annual_ctc: record.annual_ctc ?? "",
-            basic_salary: record.basic_salary ?? "",
-            hra: record.hra ?? "",
-            special_allowance: record.special_allowance ?? "",
-            currency: record.currency || "INR",
-            bank_name: record.bank_name || "",
-            account_number: record.account_number || "",
-            ifsc: record.ifsc || "",
-            account_holder_name: record.account_holder_name || "",
-            pan_number: record.pan_number || "",
-            aadhaar_number: record.aadhaar_number || "",
-            uan_number: record.uan_number || "",
-          });
+    const fetchAllData = async () => {
+      try {
+        // 1. Fetch the Target User's Base Profile to get their Role for the Security Matrix
+        const userRes = await axiosInstance.get(`/user/${id}`);
+        const targetRole = userRes.data.role;
+        setFetchedTargetRole(targetRole);
+
+        // 🚀 URL BYPASS SECURITY CHECK
+        if (!checkEditPermission(currentUser?.role, targetRole)) {
+          showToast(
+            "You do not have administrative clearance to edit this profile.",
+            "error",
+          );
+          navigate(`/employees/${id}/view/payroll`, { replace: true });
+          return;
+        }
+
+        // 2. Fetch Payroll Details
+        try {
+          const payRes = await axiosInstance.get(
+            `/user/payroll-bank-details/${id}`,
+          );
+          if (payRes.data) {
+            setIsExistingRecord(true);
+            setIsEditing(false); // 🚀 Default to safely viewing existing records
+            reset(payRes.data);
+          }
+        } catch (e: any) {
+          // 🚀 FIX: Broadened catch block prevents redirection bug!
+          console.warn(
+            "No existing payroll record found, switching to creation mode.",
+          );
+          setIsExistingRecord(false);
+          setIsEditing(true); // 🚀 Auto-enable editing if creating a brand new record
         }
       } catch (error) {
-        // 404 indicates no record exists yet, which is normal for a new onboarding
-        setHasExistingRecord(false);
-        setIsEditing(true);
+        showToast("Failed to initialize payroll configuration.", "error");
+        navigate("/employees");
       } finally {
         setInitialLoading(false);
       }
     };
 
-    if (targetId) {
-      fetchPayrollDetails();
-    }
-  }, [targetId, reset]);
+    fetchAllData();
+  }, [id, reset, showToast, navigate, currentUser?.role]);
 
-  // 🚀 SUBMISSION HANDLER
-  const handleFormSubmission = async (data: PayrollBankFormData) => {
+  const handleFormSubmission = async (data: PayrollFormData) => {
     setIsActionProcessing(true);
     try {
-      const processedPayload = {
-        annual_ctc: Number(data.annual_ctc),
-        basic_salary: Number(data.basic_salary),
-        hra: Number(data.hra),
-        special_allowance: Number(data.special_allowance),
-        currency: data.currency.trim() || "INR",
-        bank_name: data.bank_name.trim(),
-        account_number: data.account_number.trim(),
-        ifsc: data.ifsc.trim().toUpperCase(),
-        account_holder_name: data.account_holder_name.trim() || null,
-        pan_number: data.pan_number.trim().toUpperCase() || null,
-        aadhaar_number: data.aadhaar_number.trim() || null,
-        uan_number: data.uan_number.trim() || null,
-      };
-
-      if (hasExistingRecord) {
-        await axiosInstance.put(
-          `/user/payroll-bank-details/${targetId}`,
-          processedPayload,
-        );
-        showToast("Payroll & Bank details updated successfully!", "success");
-        setIsEditing(false); // Lock the form back to view mode
+      if (isExistingRecord) {
+        await axiosInstance.put(`/user/payroll-bank-details/${id}`, data);
+        showToast("Payroll details updated successfully!", "success");
+        setIsEditing(false); // 🚀 Lock the form back to view mode after saving
       } else {
-        await axiosInstance.post(
-          `/user/payroll-bank-details/${targetId}`,
-          processedPayload,
-        );
-        showToast("Payroll & Bank details added successfully!", "success");
-        navigate("/employees"); // Route back on successful first creation
+        await axiosInstance.post(`/user/payroll-bank-details/${id}`, data);
+        showToast("Payroll mapping initialized successfully!", "success");
+        navigate("/employees"); // Navigate back to directory on initial creation
       }
     } catch (error: any) {
-      console.error("Form submission exception:", error);
       const errorDetail = error.response?.data?.detail;
       const msg = Array.isArray(errorDetail)
         ? errorDetail[0]?.msg
-        : errorDetail || "Failed to save financial parameters.";
+        : errorDetail || "Failed to save configurations.";
       showToast(msg, "error");
     } finally {
       setIsActionProcessing(false);
@@ -172,11 +146,8 @@ export default function PayrollDetailsPage() {
   };
 
   const handleCancelEditing = () => {
-    if (!hasExistingRecord) {
-      navigate("/employees");
-    } else {
-      setIsEditing(false); // Revert to View mode safely
-    }
+    reset(); // Revert any unsaved changes
+    setIsEditing(false); // Lock the form
   };
 
   if (initialLoading) {
@@ -192,11 +163,15 @@ export default function PayrollDetailsPage() {
       >
         <CircularProgress size={45} sx={{ color: "#003d9b", mb: 2 }} />
         <Typography variant="body2" color="text.secondary">
-          Loading financial and statutory data...
+          Fetching financial data models...
         </Typography>
       </Box>
     );
   }
+
+  // Final Failsafe
+  if (!checkEditPermission(currentUser?.role, fetchedTargetRole || undefined))
+    return null;
 
   return (
     <Box
@@ -210,7 +185,7 @@ export default function PayrollDetailsPage() {
         pt: 4,
       }}
     >
-      {/* 🚀 Dynamic Header with Edit Toggle (All alignments strictly inside SX!) */}
+      {/* 🚀 Restored Dynamic Header with Edit Toggle */}
       <Stack
         sx={{
           flexDirection: "row",
@@ -225,23 +200,22 @@ export default function PayrollDetailsPage() {
             variant="h4"
             sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}
           >
-            {hasExistingRecord
+            {isExistingRecord
               ? isEditing
-                ? "Edit Payroll & Bank Details"
-                : "Payroll Details View"
-              : "Add Payroll & Bank Details"}
+                ? "Edit Payroll Configuration"
+                : "Payroll Configuration View"
+              : "Initialize Payroll Mapping"}
           </Typography>
           <Typography variant="body1" sx={{ color: "text.secondary" }}>
-            {hasExistingRecord
+            {isExistingRecord
               ? isEditing
-                ? "Update the compensation structure and clearing accounts."
-                : "Review the compensation structure and clearing accounts."
-              : "Complete the financial tracking and ledger settlement details to activate standard payroll logic."}
+                ? "Update compensation structure and statutory bank disclosures."
+                : "Review compensation structure and statutory bank disclosures."
+              : "Define compensation structure and statutory bank disclosures for this employee."}
           </Typography>
         </Box>
 
-        {/* Render Edit Button ONLY if viewing an existing record, they have permission, and it's currently locked */}
-        {hasExistingRecord && canEdit && !isEditing && (
+        {isExistingRecord && !isEditing && (
           <Button
             variant="outlined"
             startIcon={<EditOutlined />}
@@ -258,31 +232,25 @@ export default function PayrollDetailsPage() {
               },
             }}
           >
-            Edit Financials
+            Edit Details
           </Button>
         )}
       </Stack>
 
       <Box sx={{ flex: 1, overflowY: "auto", px: 0.5, pb: 4 }}>
-        <form
-          id="payroll-bank-form"
-          onSubmit={handleSubmit(handleFormSubmission)}
-        >
+        <form id="payroll-form" onSubmit={handleSubmit(handleFormSubmission)}>
           <Typography
             variant="h6"
-            sx={{ mb: 3, fontWeight: 600, color: "text.primary" }}
+            sx={{ mb: 2, fontWeight: 600, color: "text.primary" }}
           >
-            Salary Configuration
+            Salary Structure
           </Typography>
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="annual_ctc"
                 control={control}
-                rules={{
-                  required: "Annual CTC allocation is required",
-                  min: { value: 0, message: "Value cannot be negative" },
-                }}
+                rules={{ required: "Annual CTC is required", min: 0 }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -298,14 +266,11 @@ export default function PayrollDetailsPage() {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="basic_salary"
                 control={control}
-                rules={{
-                  required: "Basic salary component configuration is required",
-                  min: { value: 0, message: "Value cannot be negative" },
-                }}
+                rules={{ required: "Basic Salary is required", min: 0 }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -321,14 +286,11 @@ export default function PayrollDetailsPage() {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="hra"
                 control={control}
-                rules={{
-                  required: "HRA allocation parameters are required",
-                  min: { value: 0, message: "Value cannot be negative" },
-                }}
+                rules={{ required: "HRA is required", min: 0 }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -336,7 +298,7 @@ export default function PayrollDetailsPage() {
                     type="number"
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
-                    label="HRA Component *"
+                    label="HRA *"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -344,14 +306,11 @@ export default function PayrollDetailsPage() {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="special_allowance"
                 control={control}
-                rules={{
-                  required: "Special allowance parameter sets are required",
-                  min: { value: 0, message: "Value cannot be negative" },
-                }}
+                rules={{ min: 0 }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -359,7 +318,7 @@ export default function PayrollDetailsPage() {
                     type="number"
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
-                    label="Special Allowance *"
+                    label="Special Allowance"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -373,20 +332,16 @@ export default function PayrollDetailsPage() {
 
           <Typography
             variant="h6"
-            sx={{ mb: 3, fontWeight: 600, color: "text.primary" }}
+            sx={{ mb: 2, fontWeight: 600, color: "text.primary" }}
           >
-            Bank & Statutory Disclosures
+            Bank & Statutory Details
           </Typography>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="bank_name"
                 control={control}
-                rules={{
-                  required: "Bank clearing entity name is required",
-                  minLength: 2,
-                  maxLength: 250,
-                }}
+                rules={{ required: "Bank name is required" }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -394,7 +349,6 @@ export default function PayrollDetailsPage() {
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="Bank Name *"
-                    placeholder="e.g., ICICI Bank"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -402,15 +356,11 @@ export default function PayrollDetailsPage() {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="account_number"
                 control={control}
-                rules={{
-                  required: "Settlement ledger account number is required",
-                  minLength: 2,
-                  maxLength: 50,
-                }}
+                rules={{ required: "Account number is required" }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -425,21 +375,11 @@ export default function PayrollDetailsPage() {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="ifsc"
                 control={control}
-                rules={{
-                  required: "An 11 character clearing IFSC string is required",
-                  minLength: {
-                    value: 11,
-                    message: "IFSC string must contain exactly 11 characters",
-                  },
-                  maxLength: {
-                    value: 11,
-                    message: "IFSC string must contain exactly 11 characters",
-                  },
-                }}
+                rules={{ required: "IFSC Code is required" }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
@@ -447,7 +387,6 @@ export default function PayrollDetailsPage() {
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="IFSC Code *"
-                    placeholder="e.g., ICIC0000001"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -455,19 +394,18 @@ export default function PayrollDetailsPage() {
                 )}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller
                 name="account_holder_name"
                 control={control}
-                rules={{ minLength: 2, maxLength: 50 }}
+                rules={{ required: "Account holder name is required" }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
                     fullWidth
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
-                    label="Account Holder Name"
-                    placeholder="Defaults to employee name if blank"
+                    label="Account Holder Name *"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -479,53 +417,14 @@ export default function PayrollDetailsPage() {
               <Controller
                 name="pan_number"
                 control={control}
-                rules={{
-                  minLength: {
-                    value: 10,
-                    message: "PAN number contains 10 characters",
-                  },
-                  maxLength: {
-                    value: 10,
-                    message: "PAN number contains 10 characters",
-                  },
-                }}
+                rules={{ required: "PAN number is required" }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
                     fullWidth
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
-                    label="PAN Card Number"
-                    placeholder="e.g., ABCDE1234F"
-                    error={!!error}
-                    helperText={error?.message}
-                    slotProps={{ input: { sx: inputStyles } }}
-                  />
-                )}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Controller
-                name="uan_number"
-                control={control}
-                rules={{
-                  minLength: {
-                    value: 12,
-                    message: "UAN string must be exactly 12 characters",
-                  },
-                  maxLength: {
-                    value: 12,
-                    message: "UAN string must be exactly 12 characters",
-                  },
-                }}
-                render={({ field, fieldState: { error } }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    disabled={!isEditing || isActionProcessing}
-                    variant="filled"
-                    label="EPFO UAN Number"
-                    placeholder="e.g., 100XXXXXXXXX"
+                    label="PAN Number *"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -537,24 +436,32 @@ export default function PayrollDetailsPage() {
               <Controller
                 name="aadhaar_number"
                 control={control}
-                rules={{
-                  minLength: {
-                    value: 12,
-                    message: "Identity parameter requires exactly 12 metrics",
-                  },
-                  maxLength: {
-                    value: 12,
-                    message: "Identity parameter requires exactly 12 metrics",
-                  },
-                }}
+                rules={{ required: "Government Identity Number is required" }}
                 render={({ field, fieldState: { error } }) => (
                   <TextField
                     {...field}
                     fullWidth
                     disabled={!isEditing || isActionProcessing}
                     variant="filled"
-                    label="National ID Reference"
-                    placeholder="e.g., 123456789012"
+                    label="Gov Identity Number *"
+                    error={!!error}
+                    helperText={error?.message}
+                    slotProps={{ input: { sx: inputStyles } }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Controller
+                name="uan_number"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    disabled={!isEditing || isActionProcessing}
+                    variant="filled"
+                    label="UAN Number (Optional)"
                     error={!!error}
                     helperText={error?.message}
                     slotProps={{ input: { sx: inputStyles } }}
@@ -566,7 +473,7 @@ export default function PayrollDetailsPage() {
         </form>
       </Box>
 
-      {/* 🚀 Dynamic Sticky Footer (Alignments safely inside sx) */}
+      {/* 🚀 Dynamic Sticky Footer matching other Active Edit Pages */}
       {isEditing ? (
         <Stack
           sx={{
@@ -584,18 +491,22 @@ export default function PayrollDetailsPage() {
         >
           <Button
             variant="text"
-            onClick={handleCancelEditing}
+            onClick={
+              isExistingRecord
+                ? handleCancelEditing
+                : () => navigate("/employees")
+            }
             disabled={isActionProcessing}
             startIcon={<ArrowBack />}
             sx={{ textTransform: "none", fontWeight: 600, color: "#434654" }}
           >
-            {hasExistingRecord ? "Cancel Editing" : "Cancel & Return"}
+            {isExistingRecord ? "Cancel Editing" : "Cancel & Return"}
           </Button>
           <Button
             variant="contained"
             disableElevation
             type="submit"
-            form="payroll-bank-form"
+            form="payroll-form"
             disabled={isActionProcessing}
             startIcon={<SaveOutlined />}
             sx={{
@@ -608,10 +519,10 @@ export default function PayrollDetailsPage() {
             }}
           >
             {isActionProcessing
-              ? "Saving Financials..."
-              : hasExistingRecord
+              ? "Saving..."
+              : isExistingRecord
                 ? "Save Changes"
-                : "Add Payroll Details"}
+                : "Initialize Payroll"}
           </Button>
         </Stack>
       ) : (

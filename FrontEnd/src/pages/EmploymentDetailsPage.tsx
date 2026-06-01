@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   Box,
@@ -10,13 +10,13 @@ import {
   CircularProgress,
   Stack,
   Autocomplete,
+  Avatar,
 } from "@mui/material";
-import { ArrowBack, SaveOutlined } from "@mui/icons-material";
+import { ArrowBack, SaveOutlined, EditOutlined } from "@mui/icons-material"; // 🚀 Added EditOutlined
 import { useNavigate, useParams } from "react-router-dom";
 import { axiosInstance } from "../api/axiosInstance";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
-// 🚀 IMPORT NEW RBAC UTILITY
 import { checkEditPermission, type SystemRole } from "../utils/permissions";
 
 // ==========================================
@@ -52,7 +52,8 @@ export default function EmploymentDetailsPage() {
   const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
   const [isExistingRecord, setIsExistingRecord] = useState<boolean>(false);
 
-  // 🚀 RBAC Security States
+  // 🚀 Added isEditing state matching AddEmployeeWizard
+  const [isEditing, setIsEditing] = useState<boolean>(false);
   const [fetchedTargetRole, setFetchedTargetRole] = useState<SystemRole | null>(
     null,
   );
@@ -83,7 +84,6 @@ export default function EmploymentDetailsPage() {
 
     const fetchAllData = async () => {
       try {
-        // 1. Fetch Lookups
         const [polRes, shiftRes, locRes, mgrRes] = await Promise.all([
           axiosInstance.get("/admin/leave-policy").catch(() => ({ data: [] })),
           axiosInstance.get("/admin/shift").catch(() => ({ data: [] })),
@@ -95,29 +95,26 @@ export default function EmploymentDetailsPage() {
         setLocations(locRes.data);
         setManagers(mgrRes.data);
 
-        // 2. Fetch the Target User's Base Profile to get their Role for the Security Matrix
         const userRes = await axiosInstance.get(`/user/${id}`);
         const targetRole = userRes.data.role;
         setFetchedTargetRole(targetRole);
 
-        // 🚀 URL BYPASS SECURITY CHECK
-        // If they don't have permission to edit this role, boot them to the View page immediately.
         if (!checkEditPermission(currentUser?.role, targetRole)) {
           showToast(
             "You do not have administrative clearance to edit this profile.",
             "error",
           );
           navigate(`/employees/${id}/view/employment`, { replace: true });
-          return; // Stop execution
+          return;
         }
 
-        // 3. Fetch Employment Details if Security Check Passes
         try {
           const empRes = await axiosInstance.get(
             `/user/employment-details/${id}`,
           );
           if (empRes.data) {
             setIsExistingRecord(true);
+            setIsEditing(false); // 🚀 Default to safely viewing existing records
             reset({
               department: empRes.data.department || "",
               designation: empRes.data.designation || "",
@@ -131,11 +128,11 @@ export default function EmploymentDetailsPage() {
             });
           }
         } catch (e: any) {
-          if (e.response?.status === 404) {
-            setIsExistingRecord(false);
-          } else {
-            throw e;
-          }
+          console.warn(
+            "No existing employment record found, switching to creation mode.",
+          );
+          setIsExistingRecord(false);
+          setIsEditing(true); // 🚀 Auto-enable editing if creating a brand new record
         }
       } catch (error) {
         showToast("Failed to initialize employment configuration.", "error");
@@ -155,11 +152,12 @@ export default function EmploymentDetailsPage() {
       if (isExistingRecord) {
         await axiosInstance.put(`/user/employment-details/${id}`, payload);
         showToast("Employment details updated successfully!", "success");
+        setIsEditing(false); // 🚀 Lock the form back to view mode after saving
       } else {
         await axiosInstance.post(`/user/employment-details/${id}`, payload);
         showToast("Employment mapping initialized successfully!", "success");
+        navigate("/employees");
       }
-      navigate("/employees");
     } catch (error: any) {
       const errorDetail = error.response?.data?.detail;
       const msg = Array.isArray(errorDetail)
@@ -169,6 +167,11 @@ export default function EmploymentDetailsPage() {
     } finally {
       setIsActionProcessing(false);
     }
+  };
+
+  const handleCancelEditing = () => {
+    reset(); // Revert any unsaved changes
+    setIsEditing(false); // Lock the form
   };
 
   if (initialLoading) {
@@ -190,10 +193,8 @@ export default function EmploymentDetailsPage() {
     );
   }
 
-  // 🚀 Final Failsafe: If somehow rendering bypasses the useEffect redirect
-  if (!checkEditPermission(currentUser?.role, fetchedTargetRole || undefined)) {
+  if (!checkEditPermission(currentUser?.role, fetchedTargetRole || undefined))
     return null;
-  }
 
   return (
     <Box
@@ -207,6 +208,7 @@ export default function EmploymentDetailsPage() {
         pt: 4,
       }}
     >
+      {/* 🚀 Restored Dynamic Header with Edit Toggle */}
       <Stack
         sx={{
           flexDirection: "row",
@@ -222,14 +224,40 @@ export default function EmploymentDetailsPage() {
             sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}
           >
             {isExistingRecord
-              ? "Edit Employment Configuration"
+              ? isEditing
+                ? "Edit Employment Configuration"
+                : "Employment Configuration View"
               : "Initialize Employment Mapping"}
           </Typography>
           <Typography variant="body1" sx={{ color: "text.secondary" }}>
-            Define structural placement and operational rulesets for this
-            employee.
+            {isExistingRecord
+              ? isEditing
+                ? "Update structural placement and operational rulesets."
+                : "Review structural placement and operational rulesets."
+              : "Define structural placement and operational rulesets for this employee."}
           </Typography>
         </Box>
+
+        {isExistingRecord && !isEditing && (
+          <Button
+            variant="outlined"
+            startIcon={<EditOutlined />}
+            onClick={() => setIsEditing(true)}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: "#003d9b",
+              borderColor: "rgba(0, 61, 155, 0.5)",
+              borderRadius: 2,
+              "&:hover": {
+                borderColor: "#003d9b",
+                backgroundColor: "rgba(0, 61, 155, 0.05)",
+              },
+            }}
+          >
+            Edit Details
+          </Button>
+        )}
       </Stack>
 
       <Box sx={{ flex: 1, overflowY: "auto", px: 0.5, pb: 4 }}>
@@ -253,7 +281,7 @@ export default function EmploymentDetailsPage() {
                   <TextField
                     {...field}
                     fullWidth
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="Department *"
                     error={!!error}
@@ -272,7 +300,7 @@ export default function EmploymentDetailsPage() {
                   <TextField
                     {...field}
                     fullWidth
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="Designation *"
                     error={!!error}
@@ -292,7 +320,7 @@ export default function EmploymentDetailsPage() {
                     {...field}
                     select
                     fullWidth
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="Employment Type *"
                     error={!!error}
@@ -324,7 +352,54 @@ export default function EmploymentDetailsPage() {
                     onChange={(_, newValue) =>
                       onChange(newValue ? newValue.id : null)
                     }
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
+                    renderOption={(props, option) => {
+                      const { key, ...optionProps } = props as any;
+                      return (
+                        <Box
+                          component="li"
+                          key={key}
+                          {...optionProps}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
+                          }}
+                        >
+                          <Avatar
+                            src={option.profile_image_url || undefined}
+                            alt={option.first_name}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              fontSize: "0.875rem",
+                              fontWeight: 600,
+                              backgroundColor: "#003d9b",
+                            }}
+                          >
+                            {option.first_name?.charAt(0).toUpperCase() || "M"}
+                          </Avatar>
+                          <Box>
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: 600, color: "text.primary" }}
+                            >
+                              {option.first_name} {option.last_name || ""}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: "text.secondary",
+                                display: "block",
+                                mt: -0.25,
+                              }}
+                            >
+                              {option.email}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      );
+                    }}
                     renderInput={(params) => {
                       const { slotProps, ...restParams } = params;
                       return (
@@ -359,7 +434,7 @@ export default function EmploymentDetailsPage() {
                     {...field}
                     fullWidth
                     type="date"
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="Joining Date *"
                     error={!!error}
@@ -382,7 +457,7 @@ export default function EmploymentDetailsPage() {
                     {...field}
                     fullWidth
                     type="number"
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     variant="filled"
                     label="Probation Period (Months) *"
                     error={!!error}
@@ -417,7 +492,7 @@ export default function EmploymentDetailsPage() {
                     onChange={(_, newValue) =>
                       onChange(newValue ? newValue.id : null)
                     }
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     renderInput={(params) => {
                       const { slotProps, ...restParams } = params;
                       return (
@@ -458,7 +533,7 @@ export default function EmploymentDetailsPage() {
                     onChange={(_, newValue) =>
                       onChange(newValue ? newValue.id : null)
                     }
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     renderInput={(params) => {
                       const { slotProps, ...restParams } = params;
                       return (
@@ -499,7 +574,7 @@ export default function EmploymentDetailsPage() {
                     onChange={(_, newValue) =>
                       onChange(newValue ? newValue.id : null)
                     }
-                    disabled={isActionProcessing}
+                    disabled={!isEditing || isActionProcessing}
                     renderInput={(params) => {
                       const { slotProps, ...restParams } = params;
                       return (
@@ -528,53 +603,87 @@ export default function EmploymentDetailsPage() {
         </form>
       </Box>
 
-      {/* 🚀 Dynamic Sticky Footer */}
-      <Stack
-        sx={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          mt: "auto",
-          pt: 2,
-          pb: 3,
-          borderTop: "1px solid rgba(195, 198, 214, 0.5)",
-          backgroundColor: "#f8f9fb",
-          position: "sticky",
-          bottom: 0,
-          zIndex: 10,
-        }}
-      >
-        <Button
-          variant="text"
-          onClick={() => navigate("/employees")}
-          disabled={isActionProcessing}
-          startIcon={<ArrowBack />}
-          sx={{ textTransform: "none", fontWeight: 600, color: "#434654" }}
-        >
-          Cancel & Return
-        </Button>
-        <Button
-          variant="contained"
-          disableElevation
-          type="submit"
-          form="employment-form"
-          disabled={isActionProcessing}
-          startIcon={<SaveOutlined />}
+      {/* 🚀 Dynamic Sticky Footer matching AddEmployeeWizard */}
+      {isEditing ? (
+        <Stack
           sx={{
-            backgroundColor: "#003d9b",
-            textTransform: "none",
-            fontWeight: 600,
-            px: 4,
-            borderRadius: 2,
-            "&:hover": { backgroundColor: "#0052cc" },
+            flexDirection: "row",
+            justifyContent: "space-between",
+            mt: "auto",
+            pt: 2,
+            pb: 3,
+            borderTop: "1px solid rgba(195, 198, 214, 0.5)",
+            backgroundColor: "#f8f9fb",
+            position: "sticky",
+            bottom: 0,
+            zIndex: 10,
           }}
         >
-          {isActionProcessing
-            ? "Saving..."
-            : isExistingRecord
-              ? "Save Changes"
-              : "Initialize Employment"}
-        </Button>
-      </Stack>
+          <Button
+            variant="text"
+            onClick={
+              isExistingRecord
+                ? handleCancelEditing
+                : () => navigate("/employees")
+            }
+            disabled={isActionProcessing}
+            startIcon={<ArrowBack />}
+            sx={{ textTransform: "none", fontWeight: 600, color: "#434654" }}
+          >
+            {isExistingRecord ? "Cancel Editing" : "Cancel & Return"}
+          </Button>
+          <Button
+            variant="contained"
+            disableElevation
+            type="submit"
+            form="employment-form"
+            disabled={isActionProcessing}
+            startIcon={<SaveOutlined />}
+            sx={{
+              backgroundColor: "#003d9b",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 4,
+              borderRadius: 2,
+              "&:hover": { backgroundColor: "#0052cc" },
+            }}
+          >
+            {isActionProcessing
+              ? "Saving..."
+              : isExistingRecord
+                ? "Save Changes"
+                : "Initialize Employment"}
+          </Button>
+        </Stack>
+      ) : (
+        <Box
+          sx={{
+            mt: "auto",
+            pt: 2,
+            pb: 3,
+            borderTop: "1px solid rgba(195, 198, 214, 0.5)",
+            backgroundColor: "#f8f9fb",
+            position: "sticky",
+            bottom: 0,
+            zIndex: 10,
+          }}
+        >
+          <Button
+            variant="outlined"
+            onClick={() => navigate("/employees")}
+            startIcon={<ArrowBack />}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: 2,
+              color: "#434654",
+              borderColor: "rgba(195, 198, 214, 0.8)",
+            }}
+          >
+            Back to Directory
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Avatar,
   Box,
@@ -204,7 +204,7 @@ export default function MyRequestsPage() {
           <ToggleButtonGroup
             value={filterMode}
             exclusive
-            onChange={(e, newVal) => {
+            onChange={(_e, newVal) => {
               if (newVal) setFilterMode(newVal);
             }}
             size="small"

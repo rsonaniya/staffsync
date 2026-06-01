@@ -18,8 +18,8 @@ import {
   EventBusyOutlined,
   AssignmentIndOutlined,
   PaymentsOutlined,
-  SettingsOutlined,
-  HelpOutlined,
+  // SettingsOutlined,
+  // HelpOutlined,
   GroupsOutlined,
   FactCheckOutlined,
   SettingsSuggestOutlined,
@@ -30,7 +30,6 @@ import {
   CalendarMonthOutlined,
   ExpandLess,
   ExpandMore,
-  AccountCircleOutlined,
   BadgeOutlined,
   WorkspacePremiumOutlined,
   AccountBalanceOutlined,
@@ -105,10 +104,10 @@ const CONFIG_NAV_ITEMS = [
   },
 ];
 
-const BOTTOM_NAV_ITEMS = [
-  { text: "Settings", icon: <SettingsOutlined />, path: "/settings" },
-  { text: "Help", icon: <HelpOutlined />, path: "/help" },
-];
+// const BOTTOM_NAV_ITEMS = [
+//   { text: "Settings", icon: <SettingsOutlined />, path: "/settings" },
+//   { text: "Help", icon: <HelpOutlined />, path: "/help" },
+// ];
 
 export default function Sidebar() {
   const location = useLocation();
