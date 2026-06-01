@@ -26,6 +26,10 @@ import ManageHolidaysPage from "./pages/ManageHolidaysPage";
 import EmploymentDetailsPage from "./pages/EmploymentDetailsPage";
 import PayrollDetailsPage from "./pages/PayrollDetailsPage";
 import EmployeeDocumentsPage from "./pages/EmployeeDocumentsPage";
+import MyPersonalDetailsView from "./pages/Profile/MyPersonalDetailsView";
+import MyEmploymentDetailsView from "./pages/Profile/MyEmploymentDetailsView";
+import MyPayrollDetailsView from "./pages/Profile/MyPayrollDetailsView";
+import MyDocumentsView from "./pages/Profile/MyDocumentsView";
 
 // ==========================================
 // PROTECTED ROUTE COMPONENT (Role Enforcement)
@@ -93,19 +97,19 @@ export default function App() {
               <Route path="payslips" element={<PayslipsPage />} />
               <Route
                 path="/my-profile/personal"
-                element={<AddEmployeeWizard />}
+                element={<MyPersonalDetailsView />}
               />
               <Route
                 path="/my-profile/employment"
-                element={<EmploymentDetailsPage />}
+                element={<MyEmploymentDetailsView />}
               />
               <Route
                 path="/my-profile/payroll"
-                element={<PayrollDetailsPage />}
+                element={<MyPayrollDetailsView />}
               />
               <Route
                 path="/my-profile/documents"
-                element={<EmployeeDocumentsPage />}
+                element={<MyDocumentsView />}
               />
 
               {/* HR / Admin Operational Roles Only */}

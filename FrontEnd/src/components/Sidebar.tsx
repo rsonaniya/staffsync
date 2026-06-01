@@ -116,9 +116,9 @@ export default function Sidebar() {
   const { user } = useAuth();
 
   // --- Accordion Open/Close Trackers ---
-  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(true); // Default open for easy access
-  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(true);
-  const [isConfigOpen, setIsConfigOpen] = useState<boolean>(true);
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false); // Default open for easy access
+  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
+  const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
 
   const isSystemManager = user?.role === "ADMIN" || user?.role === "HR_MANAGER";
 
@@ -390,8 +390,8 @@ export default function Sidebar() {
         )}
       </Box>
 
-      {/* Footer Navigation Area */}
-      <Box sx={{ p: 3, borderTop: "1px solid rgba(195, 198, 214, 0.5)" }}>
+      {/* Footer Navigation Area ,temp-commented, need to preserv*/}
+      {/*<Box sx={{ p: 3, borderTop: "1px solid rgba(195, 198, 214, 0.5)" }}>
         <List sx={{ p: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {BOTTOM_NAV_ITEMS.map((item) => (
             <ListItem key={item.text} disablePadding>
@@ -418,6 +418,7 @@ export default function Sidebar() {
           ))}
         </List>
       </Box>
+      */}
     </Drawer>
   );
 }
