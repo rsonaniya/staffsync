@@ -6,7 +6,6 @@ import {
   Grid,
   TextField,
   Typography,
-  CircularProgress,
   Stack,
   Divider,
 } from "@mui/material";
@@ -17,6 +16,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 // 🚀 IMPORT NEW RBAC UTILITY
 import { checkEditPermission, type SystemRole } from "../utils/permissions";
+import FullScreenLoader from "../components/FullScreenLoader";
 
 interface PayrollFormData {
   annual_ctc: number;
@@ -46,7 +46,7 @@ export default function PayrollDetailsPage() {
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
 
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [initialLoading, setInitialLoading] = useState<boolean>(false);
   const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
   const [isExistingRecord, setIsExistingRecord] = useState<boolean>(false);
 
@@ -78,6 +78,7 @@ export default function PayrollDetailsPage() {
 
     const fetchAllData = async () => {
       try {
+        setInitialLoading(true);
         // 1. Fetch the Target User's Base Profile to get their Role for the Security Matrix
         const userRes = await axiosInstance.get(`/user/${id}`);
         const targetRole = userRes.data.role;
@@ -150,25 +151,8 @@ export default function PayrollDetailsPage() {
     setIsEditing(false); // Lock the form
   };
 
-  if (initialLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "calc(100vh - 64px)",
-        }}
-      >
-        <CircularProgress size={45} sx={{ color: "#003d9b", mb: 2 }} />
-        <Typography variant="body2" color="text.secondary">
-          Fetching financial data models...
-        </Typography>
-      </Box>
-    );
-  }
-
+  if (initialLoading)
+    return <FullScreenLoader message="Fetching financial records..." />;
   // Final Failsafe
   if (!checkEditPermission(currentUser?.role, fetchedTargetRole || undefined))
     return null;

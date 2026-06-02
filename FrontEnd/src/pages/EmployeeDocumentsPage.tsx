@@ -6,7 +6,6 @@ import {
   MenuItem,
   TextField,
   Typography,
-  CircularProgress,
   Stack,
   Card,
   CardContent,
@@ -49,6 +48,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 // 🚀 IMPORT NEW RBAC UTILITY
 import { checkEditPermission, type SystemRole } from "../utils/permissions";
+import FullScreenLoader from "../components/FullScreenLoader";
 
 // ==========================================
 // 1. TYPES & CONSTANTS
@@ -340,24 +340,8 @@ export default function EmployeeDocumentsPage() {
     }
   };
 
-  if (initialLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "calc(100vh - 64px)",
-        }}
-      >
-        <CircularProgress size={45} sx={{ color: "#003d9b", mb: 2 }} />
-        <Typography variant="body2" color="text.secondary">
-          Fetching user document vault...
-        </Typography>
-      </Box>
-    );
-  }
+  if (initialLoading)
+    return <FullScreenLoader message="Fetching user document vault..." />;
 
   // 🚀 Final Failsafe
   if (

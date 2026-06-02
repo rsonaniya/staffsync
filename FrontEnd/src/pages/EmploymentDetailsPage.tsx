@@ -7,7 +7,6 @@ import {
   MenuItem,
   TextField,
   Typography,
-  CircularProgress,
   Stack,
   Autocomplete,
   Avatar,
@@ -18,6 +17,7 @@ import { axiosInstance } from "../api/axiosInstance";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { checkEditPermission, type SystemRole } from "../utils/permissions";
+import FullScreenLoader from "../components/FullScreenLoader";
 
 // ==========================================
 // TYPES & CONSTANTS
@@ -48,7 +48,7 @@ export default function EmploymentDetailsPage() {
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
 
-  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [initialLoading, setInitialLoading] = useState<boolean>(false);
   const [isActionProcessing, setIsActionProcessing] = useState<boolean>(false);
   const [isExistingRecord, setIsExistingRecord] = useState<boolean>(false);
 
@@ -84,6 +84,7 @@ export default function EmploymentDetailsPage() {
 
     const fetchAllData = async () => {
       try {
+        setInitialLoading(true);
         const [polRes, shiftRes, locRes, mgrRes] = await Promise.all([
           axiosInstance.get("/admin/leave-policy").catch(() => ({ data: [] })),
           axiosInstance.get("/admin/shift").catch(() => ({ data: [] })),
@@ -174,24 +175,8 @@ export default function EmploymentDetailsPage() {
     setIsEditing(false); // Lock the form
   };
 
-  if (initialLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "calc(100vh - 64px)",
-        }}
-      >
-        <CircularProgress size={45} sx={{ color: "#003d9b", mb: 2 }} />
-        <Typography variant="body2" color="text.secondary">
-          Fetching employment data models...
-        </Typography>
-      </Box>
-    );
-  }
+  if (initialLoading)
+    return <FullScreenLoader message=" Fetching employment data..." />;
 
   if (!checkEditPermission(currentUser?.role, fetchedTargetRole || undefined))
     return null;

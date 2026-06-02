@@ -18,7 +18,7 @@ export default function FullScreenLoader({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(248, 249, 251, 0.8)", // Semi-transparent app background
+        backgroundColor: "rgba(248, 249, 251, 0.5)", // Semi-transparent app background
         backdropFilter: "blur(8px)", // Frosted glass overlay
         zIndex: 9999, // Ensures it covers everything including sidebars and navbars
         overflow: "hidden",

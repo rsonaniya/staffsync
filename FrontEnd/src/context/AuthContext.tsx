@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { axiosInstance } from "../api/axiosInstance";
 
 interface AuthContextType {
   user: any | null;
@@ -9,48 +8,33 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, profile: any) => void;
   logout: () => void;
-  updateUserProfile: (profile: any) => void; // 🚀 NEW: Update global user state
+  updateUserProfile: (profile: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // 🚀 LAZY INITIALIZATION: Instantly loads state from local storage.
+  // No waiting for API calls. No blank white screens.
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem("access_token"),
+  );
+  const [user, setUser] = useState<any | null>(() => {
+    const storedUser = localStorage.getItem("user_profile");
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+
+  // Because we load instantly from storage, the app never has an "initial auth loading" state.
+  const isLoading = false;
+
+  // Failsafe redirect: If they manually type /login in the URL but are already logged in
   useEffect(() => {
-    async function initializeAuth() {
-      const storedToken = localStorage.getItem("access_token");
-      // const storedUser = localStorage.getItem("user_profile");
-
-      if (!storedToken) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const response = await axiosInstance.get("/auth/me", {
-          headers: { Authorization: `Bearer ${storedToken}` },
-        });
-
-        setToken(storedToken);
-        setUser(response.data);
-        localStorage.setItem("user_profile", JSON.stringify(response.data));
-
-        if (window.location.pathname === "/login") {
-          navigate("/dashboard");
-        }
-      } catch (err) {
-        console.error("Token verification failed:", err);
-      } finally {
-        setIsLoading(false);
-      }
+    if (token && user && window.location.pathname === "/login") {
+      navigate("/dashboard");
     }
-
-    initializeAuth();
-  }, [navigate]);
+  }, [token, user, navigate]);
 
   const login = (accessToken: string, profile: any) => {
     localStorage.setItem("access_token", accessToken);
@@ -68,7 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate("/login");
   };
 
-  // 🚀 NEW: Dynamically update user state after a profile picture upload or patch
   const updateUserProfile = (profile: any) => {
     localStorage.setItem("user_profile", JSON.stringify(profile));
     setUser(profile);
@@ -79,14 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         token,
-        isAuthenticated: !!user,
+        isAuthenticated: !!token && !!user, // True only if both exist
         isLoading,
         login,
         logout,
         updateUserProfile,
       }}
     >
-      {!isLoading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
