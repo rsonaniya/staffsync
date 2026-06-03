@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import HTTPException, status
 
 from db.models import UserRole
@@ -31,12 +33,14 @@ VISIBLE_USER_ROLES = {
 }
 
 
-def verify_onboarding_permissions(current_user_role: UserRole, target_role: UserRole):
+def verify_onboarding_permissions(
+    current_user_role: UserRole, target_role: UserRole, is_edit: Optional[bool] = False
+):
     allowed_targets = ALLOWED_CREATION_TARGET.get(current_user_role, [])
     if target_role not in allowed_targets:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"access denied: A user with role '{current_user_role.value}' is not allowed to create a '{target_role.value}' account",
+            detail=f"access denied: A user with role '{current_user_role.value}' is not allowed to {'modify' if is_edit else 'create'} a '{target_role.value}' account",
         )
 
 

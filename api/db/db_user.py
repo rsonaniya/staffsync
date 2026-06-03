@@ -77,6 +77,48 @@ def create_db_user(request: UserCreateRequest, db: Session):
     return new_user
 
 
+def update_db_user(user: UserModel, request: UserCreateRequest, db: Session):
+    new_user_email = request.email
+    new_user_personal_email = request.personal_email
+    new_user_phone = request.phone
+    existing_user = (
+        db.query(UserModel)
+        .filter(
+            or_(
+                UserModel.email == new_user_email,
+                UserModel.email == new_user_personal_email,
+                UserModel.personal_email == new_user_email,
+                UserModel.personal_email == new_user_personal_email,
+                UserModel.phone == new_user_phone,
+            )
+        )
+        .first()
+    )
+    if existing_user and existing_user.id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already exists with given emails or Phone",
+        )
+
+    user.first_name = request.first_name
+    user.last_name = request.last_name
+    user.email = request.email
+    user.personal_email = request.personal_email
+    user.role = request.role
+    user.phone = request.phone
+    user.date_of_birth = request.date_of_birth
+    user.gender = request.gender
+    user.residential_address = request.residential_address
+    user.current_address = request.current_address
+    user.timezone = request.timezone
+    user.emergency_contact_name = request.emergency_contact_name
+    user.emergency_contact_relationship = request.emergency_contact_relationship
+    user.emergency_contact_phone = request.emergency_contact_phone
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def get_db_user_by_email(email: str, db: Session) -> UserModel | None:
     return db.query(UserModel).filter(UserModel.email == email).first()
 
@@ -114,6 +156,25 @@ def create_db_user_emp_details(
     return new_user_emp_details
 
 
+def update_db_user_emp_details(
+    user_emp_details: UserEmploymentDetailsModel,
+    request: UserEmploymentDetailsCreateRequest,
+    db: Session,
+):
+    user_emp_details.department = request.department
+    user_emp_details.designation = request.designation
+    user_emp_details.employment_type = request.employment_type
+    user_emp_details.reporting_manager_id = request.reporting_manager_id
+    user_emp_details.joining_date = request.joining_date
+    user_emp_details.probation_period_months = request.probation_period_months
+    user_emp_details.leave_policy_id = request.leave_policy_id
+    user_emp_details.shift_id = request.shift_id
+    user_emp_details.location_id = request.location_id
+    db.commit()
+    db.refresh(user_emp_details)
+    return user_emp_details
+
+
 def get_db_user_payroll_bank_by_userid(user_id: int, db: Session):
     return (
         db.query(UserPayrollAndBankModel)
@@ -144,6 +205,29 @@ def create_db_user_payroll_bank_details(
     db.commit()
     db.refresh(new_user_payroll_bank_details)
     return new_user_payroll_bank_details
+
+
+def update_db_user_payroll_bank_details(
+    payroll_bank_details: UserPayrollAndBankModel,
+    request: UserPayrollAndBankCreateRequest,
+    db: Session,
+):
+
+    payroll_bank_details.annual_ctc = request.annual_ctc
+    payroll_bank_details.basic_salary = request.basic_salary
+    payroll_bank_details.hra = request.hra
+    payroll_bank_details.special_allowance = request.special_allowance
+    payroll_bank_details.currency = request.currency
+    payroll_bank_details.bank_name = request.bank_name
+    payroll_bank_details.account_number = request.account_number
+    payroll_bank_details.ifsc = request.ifsc
+    payroll_bank_details.account_holder_name = request.account_holder_name
+    payroll_bank_details.pan_number = request.pan_number
+    payroll_bank_details.aadhaar_number = request.aadhaar_number
+    payroll_bank_details.uan_number = request.uan_number
+    db.commit()
+    db.refresh(payroll_bank_details)
+    return payroll_bank_details
 
 
 def create_db_user_document_staged(id: int, request: UserDocumentInternal, db: Session):
@@ -207,11 +291,18 @@ def get_db_user_docs(id: int, db: Session):
     return db.query(UserDocumentsModel).filter(UserDocumentsModel.user_id == id).all()
 
 
+def delete_db_docs(document: UserDocumentsModel, db: Session):
+    db.delete(document)
+    db.commit()
+
+
 def get_db_all_users(visible_roles: list[UserRole], db: Session):
     return db.query(UserModel).filter(UserModel.role.in_(visible_roles)).all()
 
 
-def update_db_user(db: Session, user: UserModel):
-    db.commit()
-    db.refresh(user)
-    return user
+def get_db_user_docs_by_document_id(document_id: int, db: Session):
+    return (
+        db.query(UserDocumentsModel)
+        .filter(UserDocumentsModel.id == document_id)
+        .first()
+    )

@@ -88,10 +88,10 @@ class UserResponse(BaseModel):
     onboarding_step: int
     model_config = {"from_attributes": True}
 
-    employment_details: Optional["UserEmploymentDetailsResponse"]
-    payroll_details: Optional["UserPayrollAndBankResponse"]
-    documents: Optional[list["UserDocumentInternal"]]
-    leave_balances: Optional[list["UserLeaveBalanceResponse"]]
+    # employment_details: Optional["UserEmploymentDetailsResponse"]
+    # payroll_details: Optional["UserPayrollAndBankResponse"]
+    # documents: Optional[list["UserDocumentInternal"]]
+    # leave_balances: Optional[list["UserLeaveBalanceResponse"]]
 
 
 class LeaveTypeCreateRequest(BaseModel):

@@ -257,7 +257,7 @@ export default function EmployeeDocumentsPage() {
     const tempId = deleteTargetId; // Capture ID before resetting state
     setDeleteTargetId(null);
     try {
-      await axiosInstance.delete(`/user/documents/${tempId}`);
+      await axiosInstance.delete(`/user/delete-documents/${tempId}`);
       showToast("Document deleted successfully.", "success");
       fetchExistingDocs();
     } catch (error: any) {

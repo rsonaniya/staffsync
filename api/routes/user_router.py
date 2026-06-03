@@ -23,15 +23,19 @@ from db.db_user import (
     create_db_user_document_staged,
     create_db_user_emp_details,
     create_db_user_payroll_bank_details,
+    delete_db_docs,
     get_db_active_managers,
     get_db_all_users,
     get_db_user_by_email,
     get_db_user_by_userid,
     get_db_user_docs,
+    get_db_user_docs_by_document_id,
     get_db_user_emp_details_by_userid,
     get_db_user_payroll_bank_by_userid,
     initialize_employee_leaves,
     update_db_user,
+    update_db_user_emp_details,
+    update_db_user_payroll_bank_details,
 )
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel, UserRole
@@ -111,6 +115,26 @@ def create_user(
 ):
     verify_onboarding_permissions(current_user.role, request.role)
     user = create_db_user(request, db)
+    return user
+
+
+@router.put("/{id}", response_model=UserResponse)
+def update_user(
+    id: int,
+    request: UserCreateRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    target_user = get_db_user_by_userid(id, db)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, target_user.role, True)
+    if target_user.role != request.role:
+        verify_onboarding_permissions(current_user.role, request.role, True)
+    user = update_db_user(target_user, request, db)
     return user
 
 
@@ -201,6 +225,61 @@ def create_user_emp_details(
     return create_db_user_emp_details(id, request, db)
 
 
+@router.put("/employment-details/{id}", response_model=UserEmploymentDetailsResponse)
+def update_user_emp_details(
+    id: int,
+    request: UserEmploymentDetailsCreateRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    existing_user = get_db_user_by_userid(id, db)
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, existing_user.role, True)
+
+    existing_emp_details = get_db_user_emp_details_by_userid(id, db)
+    if not existing_emp_details:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Employment Details not found",
+        )
+    if request.reporting_manager_id:
+        if request.reporting_manager_id == id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user can not be the self manager",
+            )
+        existing_manager = get_db_user_by_userid(request.reporting_manager_id, db)
+        if not existing_manager or existing_manager.role == UserRole.EMPLOYEE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No Reporting Manager found with given reporting manager id",
+            )
+
+    current_leave_policy = get_db_leave_policy_by_id(request.leave_policy_id, db)
+    if not current_leave_policy or not current_leave_policy.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active leave policy found with given leave policy id",
+        )
+    current_shift = get_shift_by_id(request.shift_id, db)
+    if not current_shift or not current_shift.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No active shift found with the given shift id {request.shift_id}",
+        )
+    current_location = get_db_location_by_id(request.location_id, db)
+    if not current_location:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No office location with the given location id {request.location_id}",
+        )
+    return update_db_user_emp_details(existing_emp_details, request, db)
+
+
 @router.get("/employment-details/{id}", response_model=UserEmploymentDetailsResponse)
 def get_user_emp_details(
     id: int,
@@ -253,6 +332,33 @@ def create_user_payroll_bank_details(
         )
     existing_user.onboarding_step = 3
     return create_db_user_payroll_bank_details(id, request, db)
+
+
+@router.put(
+    "/payroll-bank-details/{id}", response_model=UserPayrollAndBankCreateResponse
+)
+def update_user_payroll_bank_details(
+    id: int,
+    request: UserPayrollAndBankCreateRequest,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    existing_user = get_db_user_by_userid(id, db)
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, existing_user.role, True)
+    existing_payroll_bank_details = get_db_user_payroll_bank_by_userid(id, db)
+    if not existing_payroll_bank_details:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payroll and Bank Details not found",
+        )
+    return update_db_user_payroll_bank_details(
+        existing_payroll_bank_details, request, db
+    )
 
 
 @router.get(
@@ -325,6 +431,7 @@ def create_user_documents(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Only JPEG, PNG,PDF and WEBP images are allowed",
             )
+    for i, file in enumerate(formdata.files):
         result = cloudinary.uploader.upload(
             file.file, folder=f"staffsync/users-docs/{id}"
         )
@@ -336,6 +443,7 @@ def create_user_documents(
             display_name=formdata.display_names[i],
         )
         create_db_user_document_staged(id, document_data, db)
+
     password_set_token = secrets.token_urlsafe(16)
     existing_user.password_token = HashPassword.bcrypt(password_set_token)
     existing_user.password_token_expiry = datetime.now(timezone.utc) + timedelta(
@@ -351,7 +459,65 @@ def create_user_documents(
         password_set_token,
     )
     return {
-        "message": "Documents uploaded and Accoount activation email triggered successfully",
+        "message": "Documents uploaded and Accoount activation email triggered successfully"
+    }
+
+
+@router.post("/add-docs/{id}")
+def add_more_user_documents(
+    id: int,
+    formdata: UserDocumentCreateRequest = Depends(),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    existing_user = get_db_user_by_userid(id, db)
+    if not existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid User Id",
+        )
+    verify_onboarding_permissions(current_user.role, existing_user.role, True)
+    if existing_user.onboarding_step < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="account verification pending for this user",
+        )
+    if not (
+        len(formdata.categories) == len(formdata.files) == len(formdata.display_names)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mismatched array",
+        )
+    accepted_file_types = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
+    for i, file in enumerate(formdata.files):
+        file_size = file.size
+        is_size_correct = file_size >= 102400 and file_size <= 5242880
+        if not is_size_correct:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="a valid image file between 100 KB and 5 MB is allowed",
+            )
+        if not file.content_type in accepted_file_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only JPEG, PNG,PDF and WEBP images are allowed",
+            )
+    for i, file in enumerate(formdata.files):
+        result = cloudinary.uploader.upload(
+            file.file, folder=f"staffsync/users-docs/{id}"
+        )
+        document_data = UserDocumentInternal(
+            category=formdata.categories[i],
+            file_name=file.filename,
+            file_url=result.get("secure_url"),
+            file_public_id=result.get("public_id"),
+            display_name=formdata.display_names[i],
+        )
+        create_db_user_document_staged(id, document_data, db)
+    db.commit()
+    return {
+        "message": "Documents added successfully",
     }
 
 
@@ -373,6 +539,30 @@ def get_user_docs(
             detail=f"Your role ({current_user.role.value}) does not have permission to view this user.",
         )
     return get_db_user_docs(id, db)
+
+
+@router.delete("/delete-documents/{document_id}")
+def delete_user_documents(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    target_doc = get_db_user_docs_by_document_id(document_id, db)
+    if not target_doc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid document id",
+        )
+    target_user = get_db_user_by_userid(target_doc.user_id, db)
+    verify_onboarding_permissions(current_user.role, target_user.role, True)
+    delete_result = cloudinary.uploader.destroy(target_doc.file_public_id)
+    if delete_result.get("result") not in ["ok", "not found"]:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="failed to delete the document",
+        )
+    delete_db_docs(target_doc, db)
+    return {"message": "Documents deleted successfully"}
 
 
 @router.post("/set-password")
