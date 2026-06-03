@@ -291,6 +291,10 @@ def get_db_user_docs(id: int, db: Session):
     return db.query(UserDocumentsModel).filter(UserDocumentsModel.user_id == id).all()
 
 
+def get_db_user_docs_count(id: int, db: Session):
+    return db.query(UserDocumentsModel).filter(UserDocumentsModel.user_id == id).count()
+
+
 def delete_db_docs(document: UserDocumentsModel, db: Session):
     db.delete(document)
     db.commit()

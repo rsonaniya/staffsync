@@ -293,21 +293,24 @@ export default function EmployeeDocumentsPage() {
     });
 
     try {
-      await axiosInstance.post(
-        `/user/documents/${targetId}`,
-        multipartFormData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
-      );
+      // 🚀 CONDITIONAL API ROUTING
+      const targetEndpoint =
+        existingDocs.length === 0
+          ? `/user/documents/${targetId}`
+          : `/user/add-docs/${targetId}`;
+
+      await axiosInstance.post(targetEndpoint, multipartFormData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
       showToast("Documents uploaded successfully!", "success");
       setStagedDocs([]);
 
-      // 🚀 REDIRECT TO DIRECTORY AFTER SUCCESSFUL UPLOAD (ONBOARDING COMPLETE)
-      if (!isOwnProfile) {
+      // 🚀 REDIRECT ONLY ON INITIAL ONBOARDING, OTHERWISE REFRESH VAULT
+      if (!isOwnProfile && existingDocs.length === 0) {
         navigate("/employees");
       } else {
-        fetchExistingDocs(); // Only refresh if the employee is updating their own profile
+        fetchExistingDocs();
       }
     } catch (error: any) {
       const msg = Array.isArray(error.response?.data?.detail)
@@ -570,7 +573,7 @@ export default function EmployeeDocumentsPage() {
                                         <DownloadOutlined fontSize="small" />
                                       </IconButton>
                                     </Tooltip>
-                                    {canEdit && (
+                                    {canEdit && existingDocs.length > 1 && (
                                       <Tooltip title="Delete Permanently">
                                         <IconButton
                                           size="small"

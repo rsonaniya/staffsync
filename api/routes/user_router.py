@@ -28,6 +28,7 @@ from db.db_user import (
     get_db_all_users,
     get_db_user_by_email,
     get_db_user_by_userid,
+    get_db_user_docs_count,
     get_db_user_docs,
     get_db_user_docs_by_document_id,
     get_db_user_emp_details_by_userid,
@@ -555,6 +556,13 @@ def delete_user_documents(
         )
     target_user = get_db_user_by_userid(target_doc.user_id, db)
     verify_onboarding_permissions(current_user.role, target_user.role, True)
+    target_doc_all_count = get_db_user_docs_count(target_user.id, db)
+    if not target_doc_all_count > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user should have at least one active document",
+        )
+
     delete_result = cloudinary.uploader.destroy(target_doc.file_public_id)
     if delete_result.get("result") not in ["ok", "not found"]:
         raise HTTPException(
