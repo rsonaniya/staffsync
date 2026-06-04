@@ -20,6 +20,9 @@ import {
   Typography,
   Switch,
   MenuItem,
+  CardContent,
+  Grid,
+  Divider,
 } from "@mui/material";
 import { Add, EditOutlined, FmdGoodOutlined } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
@@ -298,6 +301,7 @@ export default function LocationsPage() {
             borderRadius: 3,
             borderColor: "rgba(195, 198, 214, 0.5)",
             overflow: "hidden",
+            display: { xs: "none", lg: "block" },
           }}
         >
           <TableContainer>
@@ -458,6 +462,193 @@ export default function LocationsPage() {
             </Table>
           </TableContainer>
         </Card>
+
+        {/* 🚀 STREAM 2: MOBILE/TABLET COMPACT CARD VIEW (Visible on Viewports < 1200px) */}
+        <Stack
+          spacing={2.5}
+          sx={{ display: { xs: "flex", lg: "none" }, width: "100%" }}
+        >
+          {!isLoading && locations.length === 0 ? (
+            <Card
+              variant="outlined"
+              sx={{
+                p: 6,
+                textAlign: "center",
+                borderRadius: 3,
+                borderColor: "rgba(195, 198, 214, 0.5)",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                No corporate facilities registered yet. Click 'Add Location' to
+                configure one.
+              </Typography>
+            </Card>
+          ) : (
+            locations.map((loc) => (
+              <Card
+                key={loc.id}
+                variant="outlined"
+                sx={{
+                  borderRadius: 3,
+                  borderColor: "rgba(195, 198, 214, 0.5)",
+                  backgroundColor: "#ffffff",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.01)",
+                  "&:hover": { backgroundColor: "#F0F7FF" },
+                  transition: "background-color 0.2s",
+                }}
+              >
+                <CardContent sx={{ p: "20px !important" }}>
+                  {/* Top Header Location Metadata Block Row */}
+                  <Stack
+                    direction="row"
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      sx={{ alignItems: "center", gap: 2 }}
+                    >
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 1.5,
+                          backgroundColor: "rgba(0, 61, 155, 0.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          color: "#003d9b",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <FmdGoodOutlined fontSize="small" />
+                      </Box>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 700, color: "text.primary" }}
+                        >
+                          {loc.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.25 }}
+                        >
+                          {loc.address || "No physical address specified"}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenModal(loc)}
+                      sx={{
+                        color: "text.secondary",
+                        mt: -0.5,
+                        mr: -0.5,
+                        "&:hover": {
+                          backgroundColor: "#e1e2e4",
+                          color: "text.primary",
+                        },
+                      }}
+                    >
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </Stack>
+
+                  <Divider
+                    sx={{ my: 2, borderColor: "rgba(195, 198, 214, 0.3)" }}
+                  />
+
+                  {/* Regional details and parameters mapping segment */}
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Regional Bounds
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "text.primary", fontWeight: 500, mt: 0.5 }}
+                      >
+                        {loc.city}, {loc.state}, {loc.country}
+                      </Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 6 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Timezone
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip
+                          label={loc.timezone}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            borderRadius: 1,
+                            fontWeight: 600,
+                            borderColor: "rgba(195, 198, 214, 0.6)",
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 6 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Status
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip
+                          label={loc.is_active ? "Active" : "Inactive"}
+                          size="small"
+                          sx={{
+                            backgroundColor: loc.is_active
+                              ? "rgba(21, 128, 61, 0.1)"
+                              : "rgba(115, 118, 133, 0.1)",
+                            color: loc.is_active ? "#15803d" : "#737685",
+                            fontWeight: 700,
+                            px: 1,
+                            height: 24,
+                            fontSize: "0.75rem",
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </Stack>
 
         {/* ==========================================
           3. DYNAMIC FACILITY OVERLAY MODAL FORM

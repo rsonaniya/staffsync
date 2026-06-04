@@ -20,6 +20,9 @@ import {
   Typography,
   Switch,
   MenuItem,
+  CardContent,
+  Divider,
+  Grid,
 } from "@mui/material";
 import {
   Add,
@@ -317,6 +320,7 @@ export default function PolicyRulesPage() {
             borderRadius: 3,
             borderColor: "rgba(195, 198, 214, 0.5)",
             overflow: "hidden",
+            display: { xs: "none", lg: "block" },
           }}
         >
           <TableContainer>
@@ -494,6 +498,233 @@ export default function PolicyRulesPage() {
             </Table>
           </TableContainer>
         </Card>
+
+        {/* 🚀 STREAM 2: MOBILE/TABLET COMPACT CARD VIEW (Visible on Viewports < 1200px) */}
+        <Stack
+          spacing={2.5}
+          sx={{ display: { xs: "flex", lg: "none" }, width: "100%" }}
+        >
+          {!isLoading && rules.length === 0 ? (
+            <Card
+              variant="outlined"
+              sx={{
+                p: 6,
+                textAlign: "center",
+                borderRadius: 3,
+                borderColor: "rgba(195, 198, 214, 0.5)",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                No policy rules configured yet. Click 'Add Policy Rule' to
+                assign limits.
+              </Typography>
+            </Card>
+          ) : (
+            rules.map((rule) => (
+              <Card
+                key={rule.id}
+                variant="outlined"
+                sx={{
+                  borderRadius: 3,
+                  borderColor: "rgba(195, 198, 214, 0.5)",
+                  backgroundColor: "#ffffff",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.01)",
+                  "&:hover": { backgroundColor: "#F0F7FF" },
+                  transition: "background-color 0.2s",
+                }}
+              >
+                <CardContent sx={{ p: "20px !important" }}>
+                  {/* Top Header Area */}
+                  <Stack
+                    direction="row"
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      sx={{ alignItems: "center", gap: 2 }}
+                    >
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 1.5,
+                          backgroundColor: "rgba(0, 61, 155, 0.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#003d9b",
+                        }}
+                      >
+                        <PlaylistAddCheckOutlined fontSize="small" />
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 700, color: "text.primary" }}
+                      >
+                        {getPolicyName(rule.leave_policy_id)}
+                      </Typography>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenModal(rule)}
+                        sx={{
+                          color: "text.secondary",
+                          "&:hover": {
+                            backgroundColor: "#e1e2e4",
+                            color: "text.primary",
+                          },
+                        }}
+                      >
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenDeleteDialog(rule.id)}
+                        sx={{
+                          color: "text.secondary",
+                          "&:hover": {
+                            backgroundColor: "rgba(186, 26, 26, 0.1)",
+                            color: "#ba1a1a",
+                          },
+                        }}
+                      >
+                        <DeleteOutlined fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+
+                  <Divider
+                    sx={{ my: 2, borderColor: "rgba(195, 198, 214, 0.3)" }}
+                  />
+
+                  {/* Grid Metadata Fields */}
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Target Leave Type
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 600, color: "text.primary", mt: 0.5 }}
+                      >
+                        {getLeaveTypeDisplay(rule.leave_type_id)}
+                      </Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 4 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Allowance
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: "text.secondary",
+                          mt: 0.5,
+                        }}
+                      >
+                        {rule.allowance} Days
+                      </Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 4 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Frequency
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip
+                          label={
+                            rule.credit_frequency === "YEARLY_UPFRONT"
+                              ? "Yearly"
+                              : "Monthly"
+                          }
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontWeight: 600,
+                            borderRadius: 1,
+                            color:
+                              rule.credit_frequency === "YEARLY_UPFRONT"
+                                ? "#003d9b"
+                                : "#434654",
+                            borderColor:
+                              rule.credit_frequency === "YEARLY_UPFRONT"
+                                ? "rgba(0, 61, 155, 0.3)"
+                                : "rgba(195, 198, 214, 0.6)",
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 4 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Type
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip
+                          label={rule.is_paid ? "Paid" : "Unpaid"}
+                          size="small"
+                          sx={{
+                            backgroundColor: rule.is_paid
+                              ? "rgba(21, 128, 61, 0.1)"
+                              : "rgba(186, 26, 26, 0.1)",
+                            color: rule.is_paid ? "#15803d" : "#ba1a1a",
+                            fontWeight: 700,
+                            px: 1,
+                            height: 24,
+                            fontSize: "0.75rem",
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </Stack>
 
         {/* ==========================================
             3. DYNAMIC CONFIGURATION DIALOG FORM

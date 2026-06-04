@@ -19,6 +19,9 @@ import {
   TextField,
   Typography,
   Switch,
+  CardContent,
+  Divider,
+  Grid,
 } from "@mui/material";
 import { Add, EditOutlined, AccessTimeOutlined } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
@@ -250,6 +253,7 @@ export default function ShiftsPage() {
             borderRadius: 3,
             borderColor: "rgba(195, 198, 214, 0.5)",
             overflow: "hidden",
+            display: { xs: "none", lg: "block" },
           }}
         >
           <TableContainer>
@@ -393,6 +397,187 @@ export default function ShiftsPage() {
             </Table>
           </TableContainer>
         </Card>
+
+        {/* 🚀 STREAM 2: MOBILE/TABLET COMPACT CARD VIEW (Visible on Viewports < 1200px) */}
+        <Stack
+          spacing={2.5}
+          sx={{ display: { xs: "flex", lg: "none" }, width: "100%" }}
+        >
+          {!isLoading && shifts.length === 0 ? (
+            <Card
+              variant="outlined"
+              sx={{
+                p: 6,
+                textAlign: "center",
+                borderRadius: 3,
+                borderColor: "rgba(195, 198, 214, 0.5)",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                No active shift profiles mapped. Click 'Add Work Shift' to map
+                scheduling parameters.
+              </Typography>
+            </Card>
+          ) : (
+            shifts.map((shift) => {
+              return (
+                <Card
+                  key={shift.id}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 3,
+                    borderColor: "rgba(195, 198, 214, 0.5)",
+                    backgroundColor: "#ffffff",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.01)",
+                    "&:hover": { backgroundColor: "#F0F7FF" },
+                    transition: "background-color 0.2s",
+                  }}
+                >
+                  <CardContent sx={{ p: "20px !important" }}>
+                    {/* Top Header Row Identifier Block */}
+                    <Stack
+                      direction="row"
+                      sx={{
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        sx={{ alignItems: "center", gap: 2 }}
+                      >
+                        <Box
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 1.5,
+                            backgroundColor: "rgba(0, 61, 155, 0.05)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#003d9b",
+                          }}
+                        >
+                          <AccessTimeOutlined fontSize="small" />
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 700, color: "text.primary" }}
+                        >
+                          {shift.name}
+                        </Typography>
+                      </Stack>
+
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenModal(shift)}
+                        sx={{
+                          color: "text.secondary",
+                          "&:hover": {
+                            backgroundColor: "#e1e2e4",
+                            color: "text.primary",
+                          },
+                        }}
+                      >
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                    </Stack>
+
+                    <Divider
+                      sx={{ my: 2, borderColor: "rgba(195, 198, 214, 0.3)" }}
+                    />
+
+                    {/* Shift Parameter Metadata Segment Metrics */}
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            color: "text.disabled",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
+                          }}
+                        >
+                          Schedules Window
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.primary",
+                            fontWeight: 600,
+                            mt: 0.5,
+                          }}
+                        >
+                          {formatTimeDisplay(shift.start_time)} –{" "}
+                          {formatTimeDisplay(shift.end_time)}
+                        </Typography>
+                      </Grid>
+
+                      <Grid size={{ xs: 6 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            color: "text.disabled",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
+                          }}
+                        >
+                          Grace Window
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.secondary",
+                            fontWeight: 600,
+                            mt: 0.5,
+                          }}
+                        >
+                          {shift.grace_period_minutes} Mins
+                        </Typography>
+                      </Grid>
+
+                      <Grid size={{ xs: 6 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            color: "text.disabled",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
+                          }}
+                        >
+                          Status
+                        </Typography>
+                        <Box sx={{ mt: 0.5 }}>
+                          <Chip
+                            label={shift.is_active ? "Active" : "Inactive"}
+                            size="small"
+                            sx={{
+                              backgroundColor: shift.is_active
+                                ? "rgba(21, 128, 61, 0.1)"
+                                : "rgba(115, 118, 133, 0.1)",
+                              color: shift.is_active ? "#15803d" : "#737685",
+                              fontWeight: 700,
+                              px: 1,
+                              height: 24,
+                              fontSize: "0.75rem",
+                            }}
+                          />
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </Stack>
 
         {/* ==========================================
           3. DYNAMIC CONFIGURATION FORM DIALOG COMPONENT
