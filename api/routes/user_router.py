@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from auth.oauth2 import get_current_user
 from auth.security import get_visible_roles, verify_onboarding_permissions
 from db.database import get_db
+from db.db_holiday import get_db_all_holidays_by_location_id
 from db.db_leave_policy import get_db_leave_policy_by_id
 from db.db_locations import get_db_location_by_id
 from db.db_shift import get_shift_by_id
@@ -50,6 +51,7 @@ from schemas import (
     UserEmploymentDetailsCreateRequest,
     UserEmploymentDetailsResponse,
     UserForgotPasswordRequest,
+    UserHolidayResponse,
     UserPasswordSetRequest,
     UserPayrollAndBankCreateRequest,
     UserPayrollAndBankCreateResponse,
@@ -67,6 +69,20 @@ def get_namager_list(
     db: Session = Depends(get_db), current_user=Depends(get_current_user)
 ):
     return get_db_active_managers(db)
+
+
+@router.get("/holidays", response_model=list[UserHolidayResponse])
+def get_all_user_holidays(
+    db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    user_emp_details = get_db_user_emp_details_by_userid(current_user.id, db)
+    if not user_emp_details or not user_emp_details.location_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employment details or location details not found for the user",
+        )
+
+    return get_db_all_holidays_by_location_id(user_emp_details.location_id, db)
 
 
 @router.post("/seed-user")  # temp endpoint for creating an HR in DB

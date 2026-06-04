@@ -447,9 +447,12 @@ class HolidayCreateRequest(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class HolidayResponse(BaseModel):
+class UserHolidayResponse(BaseModel):
     id: int
     name: str
     applicable_date: date
     is_active: bool
+
+
+class HolidayResponse(UserHolidayResponse):
     locations: list[LocationResponse] = []

@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import and_, extract
+from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session
 
 from db.models import HolidayModel, LocationModel
@@ -61,3 +61,17 @@ def update_db_holiday(
     db.commit()
     db.refresh(holiday)
     return holiday
+
+
+def get_db_all_holidays_by_location_id(location_id: int, db: Session):
+    return (
+        db.query(HolidayModel)
+        .filter(
+            or_(
+                HolidayModel.locations.any(LocationModel.id == location_id),
+                ~HolidayModel.locations.any(),
+            )
+        )
+        .order_by(HolidayModel.applicable_date.asc())
+        .all()
+    )
