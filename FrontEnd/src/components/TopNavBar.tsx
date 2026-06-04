@@ -10,13 +10,21 @@ import {
   Stack,
   Tooltip,
 } from "@mui/material";
-import { NotificationsOutlined, LogoutOutlined } from "@mui/icons-material";
+import {
+  NotificationsOutlined,
+  LogoutOutlined,
+  Menu as MenuIcon,
+} from "@mui/icons-material"; // 🚀 Added MenuIcon
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const SIDEBAR_WIDTH = 280;
 
-export default function TopNavBar() {
+interface TopNavBarProps {
+  onMenuClick: () => void; // 🚀 Prop to bridge parent state
+}
+
+export default function TopNavBar({ onMenuClick }: TopNavBarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -25,8 +33,9 @@ export default function TopNavBar() {
       position="fixed"
       elevation={0}
       sx={{
-        width: { sm: `calc(100% - ${SIDEBAR_WIDTH}px)` },
-        ml: { sm: `${SIDEBAR_WIDTH}px` },
+        // 🚀 Dynamic width calculation based on your 1200px structural breakpoint
+        width: { xs: "100%", lg: `calc(100% - ${SIDEBAR_WIDTH}px)` },
+        ml: { xs: 0, lg: `${SIDEBAR_WIDTH}px` },
         backgroundColor: "rgba(248, 249, 251, 0.8)",
         backdropFilter: "blur(12px)",
         borderBottom: "1px solid rgba(195, 198, 214, 0.5)",
@@ -44,52 +53,69 @@ export default function TopNavBar() {
         {/* ==========================================
             LEFT SIDE: PERSONALIZED USER CONTEXT 
             ========================================== */}
-        <Box
-          onClick={() => navigate("/my-profile/personal")}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            cursor: "pointer",
-            px: 1,
-            py: 0.5,
-            borderRadius: 2,
-            transition: "background-color 0.2s",
-            "&:hover": { backgroundColor: "rgba(195, 198, 214, 0.2)" },
-          }}
-        >
-          <Avatar
-            src={(user as any)?.profile_image_url || undefined}
-            alt={user?.first_name}
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1 }}>
+          {/* 🚀 HAMBURGER TRIGGER: Only mounts visible layout context below 1200px */}
+          <IconButton
+            color="inherit"
+            aria-label="open dynamic sidebar viewport"
+            edge="start"
+            onClick={onMenuClick}
             sx={{
-              width: 40,
-              height: 40,
-              backgroundColor: "#003d9b",
-              fontWeight: 600,
-              fontSize: "1.1rem",
-              border: "2px solid #ffffff",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              display: { xs: "inline-flex", lg: "none" },
+              color: "#434654",
+              mr: 0.5,
             }}
           >
-            {user?.first_name?.charAt(0).toUpperCase() || "U"}
-          </Avatar>
-          <Box sx={{ display: { xs: "none", sm: "block" } }}>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}
+            <MenuIcon />
+          </IconButton>
+
+          <Box
+            onClick={() => navigate("/my-profile/personal")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              cursor: "pointer",
+              px: 1,
+              py: 0.5,
+              borderRadius: 2,
+              transition: "background-color 0.2s",
+              "&:hover": { backgroundColor: "rgba(195, 198, 214, 0.2)" },
+            }}
+          >
+            <Avatar
+              src={(user as any)?.profile_image_url || undefined}
+              alt={user?.first_name}
+              sx={{
+                width: 40,
+                height: 40,
+                backgroundColor: "#003d9b",
+                fontWeight: 600,
+                fontSize: "1.1rem",
+                border: "2px solid #ffffff",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              }}
             >
-              {user?.first_name} {user?.last_name}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", fontWeight: 500 }}
-            >
-              {/* Fallback to System Role if designation isn't loaded in context yet */}
-              {(user as any)?.employment_details?.designation ||
-                user?.role.replace("_", " ")}
-            </Typography>
+              {user?.first_name?.charAt(0).toUpperCase() || "U"}
+            </Avatar>
+            <Box sx={{ display: { xs: "none", sm: "block" } }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}
+              >
+                {user?.first_name} {user?.last_name}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: "text.secondary", fontWeight: 500 }}
+              >
+                {/* Fallback to System Role if designation isn't loaded in context yet */}
+                {(user as any)?.employment_details?.designation ||
+                  user?.role.replace("_", " ")}
+              </Typography>
+            </Box>
           </Box>
-        </Box>
+        </Stack>
 
         {/* ==========================================
             RIGHT SIDE: GLOBAL ACTIONS (NOTIFICATIONS & LOGOUT) 

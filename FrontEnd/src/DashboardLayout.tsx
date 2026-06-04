@@ -5,10 +5,18 @@ import Sidebar from "./components/Sidebar";
 import { Box, CssBaseline } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import TopNavBar from "./components/TopNavBar";
+import { useState } from "react"; // 🚀 Added for mobile drawer state management
 
 // --- Layout Component ---
 // This wraps all the internal pages so the Sidebar is only rendered once.
 function DashboardLayout() {
+  // 🚀 Hook to manage responsive menu state
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen((prev) => !prev);
+  };
+
   return (
     <Box
       sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#f8f9fb" }}
@@ -16,8 +24,8 @@ function DashboardLayout() {
       <CssBaseline />
 
       {/* Persistent Sidebar */}
-      <Sidebar />
-      <TopNavBar />
+      <Sidebar mobileOpen={mobileOpen} onClose={handleDrawerToggle} />
+      <TopNavBar onMenuClick={handleDrawerToggle} />
 
       {/* Main Content Area */}
       <Box
@@ -26,8 +34,6 @@ function DashboardLayout() {
           flexGrow: 1,
           display: "flex",
           flexDirection: "column",
-          // 280px is the width of the sidebar
-          //   ml: "280px",
         }}
       >
         {/* We will add the TopNavBar here in the next step */}

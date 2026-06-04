@@ -10,6 +10,8 @@ import {
   ListItemText,
   Typography,
   Collapse,
+  IconButton,
+  Stack,
 } from "@mui/material";
 import {
   DashboardOutlined,
@@ -34,6 +36,7 @@ import {
   WorkspacePremiumOutlined,
   AccountBalanceOutlined,
   DescriptionOutlined,
+  CloseOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 
@@ -43,6 +46,11 @@ interface NavItem {
   text: string;
   icon: React.ReactNode;
   path: string;
+}
+
+interface SidebarProps {
+  mobileOpen: boolean;
+  onClose: () => void;
 }
 
 const MAIN_NAV_ITEMS = [
@@ -109,7 +117,7 @@ const CONFIG_NAV_ITEMS = [
 //   { text: "Help", icon: <HelpOutlined />, path: "/help" },
 // ];
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -127,7 +135,10 @@ export default function Sidebar() {
     return (
       <ListItem key={item.text} disablePadding>
         <ListItemButton
-          onClick={() => navigate(item.path)}
+          onClick={() => {
+            navigate(item.path);
+            onClose(); // 🚀 Closes mobile temporary menu overlay cleanly upon choice detection
+          }}
           sx={{
             borderRadius: 2,
             py: 1,
@@ -178,56 +189,64 @@ export default function Sidebar() {
     );
   };
 
-  return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: SIDEBAR_WIDTH,
-        flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: SIDEBAR_WIDTH,
-          boxSizing: "border-box",
-          backgroundColor: "#f8f9fb",
-          borderRight: "1px solid rgba(195, 198, 214, 0.5)",
-          display: "flex",
-          flexDirection: "column",
-        },
-      }}
-    >
+  // 🚀 REUSABLE WRAPPER: Renders identical UI contents into both components without code dilution
+  const sidebarContent = (
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Header / Logo Area */}
       <Box
-        sx={{ px: 3, py: 3, display: "flex", alignItems: "center", gap: 1.5 }}
+        sx={{
+          px: 3,
+          py: 3,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between", // 🚀 Shifts close button to the far right
+          gap: 1.5,
+        }}
       >
-        <Box
+        <Stack direction="row" sx={{ alignItems: "center", gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              backgroundColor: "#003d9b",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.25rem",
+              fontWeight: 700,
+            }}
+          >
+            S
+          </Box>
+          <Box>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700, color: "#003d9b", lineHeight: 1.2 }}
+            >
+              StaffSync
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: "#434654", fontWeight: 500 }}
+            >
+              Enterprise Suite
+            </Typography>
+          </Box>
+        </Stack>
+
+        {/* 🚀 RESPONSIVE CLOSE ICON: Hidden on desktop, interactive on mobile layout viewports */}
+        <IconButton
+          onClick={onClose}
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            backgroundColor: "#003d9b",
-            color: "#ffffff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "1.25rem",
-            fontWeight: 700,
+            display: { xs: "inline-flex", lg: "none" },
+            color: "#434654",
+            "&:hover": { backgroundColor: "rgba(231, 232, 234, 0.5)" },
           }}
         >
-          S
-        </Box>
-        <Box>
-          <Typography
-            variant="h6"
-            sx={{ fontWeight: 700, color: "#003d9b", lineHeight: 1.2 }}
-          >
-            StaffSync
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{ color: "#434654", fontWeight: 500 }}
-          >
-            Enterprise Suite
-          </Typography>
-        </Box>
+          <CloseOutlined />
+        </IconButton>
       </Box>
 
       {/* Navigation Streams */}
@@ -418,6 +437,50 @@ export default function Sidebar() {
         </List>
       </Box>
       */}
-    </Drawer>
+    </Box>
+  );
+
+  return (
+    <Box component="nav">
+      {/* 🚀 DRAWER 1: TEMPORARY OVERLAY VERSION (Only mounts visible below 1200px) */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={onClose}
+        ModalProps={{ keepMounted: true }} // Dramatically increases upload/interaction response layout speeds
+        sx={{
+          display: { xs: "block", lg: "none" },
+          "& .MuiDrawer-paper": {
+            width: SIDEBAR_WIDTH,
+            boxSizing: "border-box",
+            backgroundColor: "#f8f9fb",
+            borderRight: "1px solid rgba(195, 198, 214, 0.5)",
+          },
+        }}
+      >
+        {sidebarContent}
+      </Drawer>
+
+      {/* 🚀 DRAWER 2: PERMANENT LAYOUT VERSION (Only mounts visible on monitors >= 1200px) */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: "none", lg: "block" },
+          width: SIDEBAR_WIDTH,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: SIDEBAR_WIDTH,
+            boxSizing: "border-box",
+            backgroundColor: "#f8f9fb",
+            borderRight: "1px solid rgba(195, 198, 214, 0.5)",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+        open
+      >
+        {sidebarContent}
+      </Drawer>
+    </Box>
   );
 }
