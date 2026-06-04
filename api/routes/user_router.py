@@ -37,6 +37,7 @@ from db.db_user import (
     update_db_user,
     update_db_user_emp_details,
     update_db_user_payroll_bank_details,
+    update_db_user_profile_pic,
 )
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel, UserRole
@@ -755,5 +756,5 @@ def upload_profile_pic(
     )
     current_user.profile_image_url = result.get("secure_url")
     current_user.profile_image_public_id = result.get("public_id")
-    updated_user = update_db_user(db, current_user)
+    updated_user = update_db_user_profile_pic(current_user, db)
     return updated_user

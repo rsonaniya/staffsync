@@ -310,3 +310,9 @@ def get_db_user_docs_by_document_id(document_id: int, db: Session):
         .filter(UserDocumentsModel.id == document_id)
         .first()
     )
+
+
+def update_db_user_profile_pic(user: UserModel, db: Session):
+    db.commit()
+    db.refresh(user)
+    return user
