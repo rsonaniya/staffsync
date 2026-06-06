@@ -65,6 +65,16 @@ class DocumentCategory(str, enum.Enum):
     OTHER = "OTHER"
 
 
+class AttendanceStatusEnum(str, enum.Enum):
+    PRESENT = "PRESENT"
+    ABSENT = "ABSENT"
+    ON_LEAVE = "ON_LEAVE"
+    HOLIDAY = "HOLIDAY"
+    WEEK_OFF = "WEEK_OFF"
+    HALF_DAY = "HALF_DAY"
+    REGULARIZATION_PENDING = "REGULARIZATION_PENDING"
+
+
 class UserModel(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -315,3 +325,51 @@ class HolidayModel(Base):
     locations: Mapped[List["LocationModel"]] = relationship(
         secondary=holiday_location_association, back_populates="holidays"
     )
+
+
+class AttendanceModel(Base):
+    __tablename__ = "attendance"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    applicable_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[AttendanceStatusEnum] = mapped_column(
+        Enum(AttendanceStatusEnum), default=AttendanceStatusEnum.ABSENT, nullable=False
+    )
+    is_late: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    total_working_hours: Mapped[float] = mapped_column(default=0.0)
+    last_change_request_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    updated_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    __table_args__ = (
+        UniqueConstraint("user_id", "applicable_date", name="_user_date_uc"),
+    )
+    user: Mapped["UserModel"] = relationship(foreign_keys=[user_id])
+    sessions: Mapped[list["AttendanceSessionModel"]] = relationship(
+        back_populates="attendance", cascade="all, delete-orphan"
+    )
+
+
+class AttendanceSessionModel(Base):
+    __tablename__ = "attendance_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    attendance_id: Mapped[int] = mapped_column(
+        ForeignKey("attendance.id", ondelete="CASCADE"), index=True
+    )
+    clock_in: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    clock_out: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    ip_address: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    device_info: Mapped[Optional[str]] = mapped_column(String(250), nullable=True)
+    attendance: Mapped["AttendanceModel"] = relationship(back_populates="sessions")

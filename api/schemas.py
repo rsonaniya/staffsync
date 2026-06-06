@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from db.models import (
     AccountStatus,
+    AttendanceStatusEnum,
     CreditFrequency,
     DocumentCategory,
     EmploymentType,
@@ -456,3 +457,33 @@ class UserHolidayResponse(BaseModel):
 
 class HolidayResponse(UserHolidayResponse):
     locations: list[LocationResponse] = []
+    model_config = {"from_attributes": True}
+
+
+class AttendanceCalendarResponse(BaseModel):
+    applicable_date: date
+    status: AttendanceStatusEnum
+    model_config = {"from_attributes": True}
+
+
+class AttendanceSessionResponse(BaseModel):
+    id: int
+    clock_in: datetime
+    clock_out: Optional[datetime]
+    ip_address: Optional[str]
+    device_info: Optional[str]
+    model_config = {"from_attributes": True}
+
+
+class AttendanceDayResponse(BaseModel):
+    id: int
+    applicable_date: date
+    status: AttendanceStatusEnum
+    is_late: bool
+    total_working_hours: float
+    sessions: list[AttendanceSessionResponse]
+    model_config = {"from_attributes": True}
+
+
+class AttendanceToggleRequest(BaseModel):
+    device_info: Optional[str] = None
