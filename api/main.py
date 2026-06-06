@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 from db import models
 from db.database import engine
+from jobs.attendance_cron import run_nightly_attendance_reconciliation
 from routes import (
     leave_type_router,
     user_router,
@@ -24,10 +26,17 @@ from utils.cloudinary_client import init_cloudinary
 async def lifespan(app: FastAPI):
     init_cloudinary()
     print("cloudinary SDK Initialized")
+
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_nightly_attendance_reconciliation, "cron", hour=23, minute=59)
+    scheduler.start()
+    print("background scheduler started")
     yield
+    scheduler.shutdown()
+    print("Background Scheduler Shutdown")
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(authentication.router)
 app.include_router(user_router.router)
@@ -40,7 +49,7 @@ app.include_router(holiday_router.router)
 app.include_router(attendance_router.router)
 
 
-@app.get("/health-check")
+@app.api_route("/health-check", methods=["GET", "HEAD"])
 def get_health_status():
     return {"message": "StafSync is running"}
 

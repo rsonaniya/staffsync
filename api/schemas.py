@@ -368,6 +368,7 @@ class ShiftCreateRequest(BaseModel):
     grace_period_minutes: int = Field(
         15, ge=0, description="Allowed late minutes before marking half-day/absent"
     )
+    working_days: list[int] = [0, 1, 2, 3, 4]
     is_active: bool = Field(True, description="Flag for active shifts")
 
     model_config = {"from_attributes": True}

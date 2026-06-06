@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     Date,
@@ -285,6 +286,9 @@ class ShiftModel(Base):
     start_time: Mapped[time] = mapped_column(nullable=False)
     end_time: Mapped[time] = mapped_column(nullable=False)
     grace_period_minutes: Mapped[int] = mapped_column(default=15)
+    working_days: Mapped[list[int]] = mapped_column(
+        JSON, default=lambda: [0, 1, 2, 3, 4], nullable=False
+    )
     is_active: Mapped[bool] = mapped_column(default=True)
 
 

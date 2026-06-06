@@ -21,6 +21,7 @@ def create_db_shift(request: ShiftCreateRequest, db: Session):
         end_time=request.end_time,
         grace_period_minutes=request.grace_period_minutes,
         is_active=request.is_active,
+        working_days=request.working_days,
     )
     db.add(new_shift)
     db.commit()
@@ -38,5 +39,6 @@ def update_db_shift(shift: ShiftModel, request: ShiftCreateRequest, db: Session)
     shift.end_time = request.end_time
     shift.grace_period_minutes = request.grace_period_minutes
     shift.is_active = request.is_active
+    shift.working_days = request.working_days
     db.commit()
     return shift
