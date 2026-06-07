@@ -9,11 +9,16 @@ from db.database import get_db
 from db.db_attendance import (
     get_db_attendance_by_date,
     get_db_open_session_for_attendance,
+    is_db_user_holiday,
 )
 from db.db_shift import get_shift_by_id
 from db.db_user import get_db_user_emp_details_by_userid
 from db.models import AttendanceModel, AttendanceSessionModel, AttendanceStatusEnum
-from schemas import AttendanceDayResponse, AttendanceToggleRequest
+from schemas import (
+    AttendanceDayResponse,
+    AttendanceToggleRequest,
+    TodayAttendanceResponse,
+)
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
@@ -101,3 +106,48 @@ def toggle_attendance(
         db.commit()
         db.refresh(new_session)
         return attendance
+
+
+@router.get("/today", response_model=TodayAttendanceResponse)
+def get_today_attendance(db=Depends(get_db), current_user=Depends(get_current_user)):
+    now_utc = datetime.now(timezone.utc)
+    user_tz_str = current_user.timezone or "UTC"
+    user_zone = ZoneInfo(user_tz_str)
+    now_local = now_utc.astimezone(user_zone)
+    date_local = now_local.date()
+    target_weekday = now_local.weekday()
+
+    target_user_emp_details = get_db_user_emp_details_by_userid(current_user.id, db)
+
+    if not target_user_emp_details or not target_user_emp_details.shift_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No shift assigned to this user.",
+        )
+    day_type = AttendanceStatusEnum.PRESENT
+    is_holiday = is_db_user_holiday(db, date_local, target_user_emp_details.location_id)
+
+    if is_holiday:
+        day_type = AttendanceStatusEnum.HOLIDAY
+    shift = get_shift_by_id(target_user_emp_details.shift_id, db)
+    is_week_off = target_weekday not in shift.working_days
+    if is_week_off:
+        day_type = AttendanceStatusEnum.WEEK_OFF
+    today_attendance = get_db_attendance_by_date(current_user.id, date_local, db)
+    is_clocked_in = False
+    total_working_hours = 0.0
+    current_session_start = None
+    if today_attendance:
+        day_type = today_attendance.status
+        total_working_hours = today_attendance.total_working_hours
+        open_session = get_db_open_session_for_attendance(today_attendance.id, db)
+        if open_session:
+            is_clocked_in = True
+            current_session_start = open_session.clock_in
+    return {
+        "applicable_date": date_local,
+        "day_type": day_type,
+        "is_clocked_in": is_clocked_in,
+        "total_working_hours": total_working_hours,
+        "current_session_start": current_session_start,
+    }

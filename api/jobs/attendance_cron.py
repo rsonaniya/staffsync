@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_
 
 from db.database import SessionLocal
+from db.db_attendance import is_db_user_holiday
 from db.models import (
     AccountStatus,
     AttendanceModel,
@@ -67,16 +68,8 @@ def run_nightly_attendance_reconciliation():
                 if shift and (target_weekday not in shift.working_days):
                     final_status = AttendanceStatusEnum.WEEK_OFF
                 else:
-                    is_holiday = (
-                        db.query(HolidayModel)
-                        .filter(
-                            HolidayModel.applicable_date == target_date,
-                            or_(
-                                HolidayModel.locations.any(id=emp_details.location_id),
-                                ~HolidayModel.locations.any(),
-                            ),
-                        )
-                        .first()
+                    is_holiday = is_db_user_holiday(
+                        db, target_date, emp_details.location_id
                     )
                     if is_holiday:
                         final_status = AttendanceStatusEnum.HOLIDAY

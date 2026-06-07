@@ -488,3 +488,12 @@ class AttendanceDayResponse(BaseModel):
 
 class AttendanceToggleRequest(BaseModel):
     device_info: Optional[str] = None
+
+
+class TodayAttendanceResponse(BaseModel):
+    applicable_date: date
+    day_type: AttendanceStatusEnum
+    is_clocked_in: bool
+    total_working_hours: float
+    current_session_start: Optional[datetime] = None
+    model_config = {"from_attributes": True}
