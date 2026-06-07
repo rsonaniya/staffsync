@@ -3,11 +3,14 @@ import {
   Box,
   Button,
   Card,
+  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  Grid,
   IconButton,
   Stack,
   Table,
@@ -19,9 +22,11 @@ import {
   TextField,
   Typography,
   Switch,
-  CardContent,
-  Divider,
-  Grid,
+  Select,
+  MenuItem,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
 } from "@mui/material";
 import { Add, EditOutlined, AccessTimeOutlined } from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
@@ -30,7 +35,7 @@ import FullScreenLoader from "../components/FullScreenLoader";
 import { useToast } from "../context/ToastContext";
 
 // ==========================================
-// 1. TYPES & STYLES
+// 1. TYPES & CONSTANTS
 // ==========================================
 
 interface Shift {
@@ -39,6 +44,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   grace_period_minutes: number;
+  working_days: number[]; // 🚀 NEW FIELD
   is_active: boolean;
 }
 
@@ -47,15 +53,46 @@ interface ShiftFormInputs {
   start_time: string;
   end_time: string;
   grace_period_minutes: number;
+  working_days: number[]; // 🚀 NEW FIELD
   is_active: boolean;
 }
 
 const inputStyles = {
   backgroundColor: "#f3f4f6",
   borderRadius: "4px 4px 0 0",
-  "&:before": { borderBottom: "1px solid #c3c6d6" },
-  "&:hover:not(.Mui-disabled):before": { borderBottom: "1px solid #737685" },
-  "&:after": { borderBottom: "2px solid #003d9b" },
+  "& .MuiOutlinedInput-notchedOutline": {
+    border: "none",
+    borderBottom: "1px solid #c3c6d6",
+    borderRadius: "4px 4px 0 0",
+  },
+  "&:hover .MuiOutlinedInput-notchedOutline": {
+    borderBottom: "1px solid #737685",
+  },
+  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+    borderBottom: "2px solid #003d9b",
+  },
+};
+
+// Standard Python datetime.weekday() mapping (0 = Monday, 6 = Sunday)
+const WEEKDAY_OPTIONS = [
+  { label: "Monday", value: 0 },
+  { label: "Tuesday", value: 1 },
+  { label: "Wednesday", value: 2 },
+  { label: "Thursday", value: 3 },
+  { label: "Friday", value: 4 },
+  { label: "Saturday", value: 5 },
+  { label: "Sunday", value: 6 },
+];
+
+// Helper to format [0,1,2,3,4] into "Mon, Tue, Wed, Thu, Fri"
+const formatWorkingDays = (days: number[]) => {
+  if (!days || days.length === 0) return "—";
+  if (days.length === 7) return "Everyday";
+  const shortNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return [...days]
+    .sort((a, b) => a - b)
+    .map((d) => shortNames[d])
+    .join(", ");
 };
 
 // ==========================================
@@ -77,6 +114,7 @@ export default function ShiftsPage() {
       start_time: "09:00",
       end_time: "18:00",
       grace_period_minutes: 15,
+      working_days: [0, 1, 2, 3, 4], // Default Mon-Fri
       is_active: true,
     },
     mode: "onTouched",
@@ -104,6 +142,7 @@ export default function ShiftsPage() {
 
   useEffect(() => {
     fetchShifts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Open modal handler configuration
@@ -112,10 +151,11 @@ export default function ShiftsPage() {
     if (shift) {
       reset({
         name: shift.name,
-        // Backend might supply HH:MM:SS format, normalize to HH:MM for HTML5 textfields
+        // Backend supplies HH:MM:SS format, normalize to HH:MM for HTML5 textfields
         start_time: shift.start_time.slice(0, 5),
         end_time: shift.end_time.slice(0, 5),
         grace_period_minutes: shift.grace_period_minutes,
+        working_days: shift.working_days || [0, 1, 2, 3, 4],
         is_active: shift.is_active,
       });
     } else {
@@ -124,6 +164,7 @@ export default function ShiftsPage() {
         start_time: "09:00",
         end_time: "18:00",
         grace_period_minutes: 15,
+        working_days: [0, 1, 2, 3, 4],
         is_active: true,
       });
     }
@@ -140,7 +181,7 @@ export default function ShiftsPage() {
     const payload = {
       ...data,
       name: data.name.trim(),
-      // Guaranteeing times are fully padded as HH:MM:SS parameters to preserve strict Pydantic parsing formats
+      // Guaranteeing times are fully padded as HH:MM:SS parameters
       start_time:
         data.start_time.length === 5
           ? `${data.start_time}:00`
@@ -246,14 +287,16 @@ export default function ShiftsPage() {
           </Button>
         </Stack>
 
-        {/* Main Data Table View Container */}
+        {/* ==========================================
+            STREAM 1: DESKTOP TABLE VIEW
+            ========================================== */}
         <Card
           variant="outlined"
           sx={{
+            display: { xs: "none", lg: "block" },
             borderRadius: 3,
             borderColor: "rgba(195, 198, 214, 0.5)",
             overflow: "hidden",
-            display: { xs: "none", lg: "block" },
           }}
         >
           <TableContainer>
@@ -263,6 +306,7 @@ export default function ShiftsPage() {
                   {[
                     "Shift Details",
                     "Schedules Window",
+                    "Working Days",
                     "Grace Window",
                     "Status",
                     "Action",
@@ -288,7 +332,7 @@ export default function ShiftsPage() {
                 {!isLoading && shifts.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       align="center"
                       sx={{ py: 6, color: "text.secondary" }}
                     >
@@ -308,7 +352,6 @@ export default function ShiftsPage() {
                         },
                       }}
                     >
-                      {/* Shift Title Identifiers */}
                       <TableCell>
                         <Stack
                           sx={{
@@ -325,9 +368,8 @@ export default function ShiftsPage() {
                               backgroundColor: "rgba(0, 61, 155, 0.05)",
                               display: "flex",
                               alignItems: "center",
-                              justifyBox: "center",
-                              color: "#003d9b",
                               justifyContent: "center",
+                              color: "#003d9b",
                             }}
                           >
                             <AccessTimeOutlined fontSize="small" />
@@ -341,7 +383,6 @@ export default function ShiftsPage() {
                         </Stack>
                       </TableCell>
 
-                      {/* Timeline Scheduling bounds */}
                       <TableCell
                         sx={{ color: "text.primary", fontWeight: 500 }}
                       >
@@ -349,14 +390,19 @@ export default function ShiftsPage() {
                         {formatTimeDisplay(shift.end_time)}
                       </TableCell>
 
-                      {/* Grace period details */}
+                      {/* 🚀 NEW COLUMN: Working Days */}
+                      <TableCell
+                        sx={{ color: "text.primary", fontWeight: 500 }}
+                      >
+                        {formatWorkingDays(shift.working_days)}
+                      </TableCell>
+
                       <TableCell
                         sx={{ color: "text.secondary", fontWeight: 600 }}
                       >
                         {shift.grace_period_minutes} Mins
                       </TableCell>
 
-                      {/* Status indicator tags */}
                       <TableCell>
                         <Chip
                           label={shift.is_active ? "Active" : "Inactive"}
@@ -374,7 +420,6 @@ export default function ShiftsPage() {
                         />
                       </TableCell>
 
-                      {/* Modals trigger actions */}
                       <TableCell>
                         <IconButton
                           size="small"
@@ -398,7 +443,9 @@ export default function ShiftsPage() {
           </TableContainer>
         </Card>
 
-        {/* 🚀 STREAM 2: MOBILE/TABLET COMPACT CARD VIEW (Visible on Viewports < 1200px) */}
+        {/* ==========================================
+            STREAM 2: MOBILE COMPACT CARDS
+            ========================================== */}
         <Stack
           spacing={2.5}
           sx={{ display: { xs: "flex", lg: "none" }, width: "100%" }}
@@ -420,162 +467,176 @@ export default function ShiftsPage() {
               </Typography>
             </Card>
           ) : (
-            shifts.map((shift) => {
-              return (
-                <Card
-                  key={shift.id}
-                  variant="outlined"
-                  sx={{
-                    borderRadius: 3,
-                    borderColor: "rgba(195, 198, 214, 0.5)",
-                    backgroundColor: "#ffffff",
-                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.01)",
-                    "&:hover": { backgroundColor: "#F0F7FF" },
-                    transition: "background-color 0.2s",
-                  }}
-                >
-                  <CardContent sx={{ p: "20px !important" }}>
-                    {/* Top Header Row Identifier Block */}
+            shifts.map((shift) => (
+              <Card
+                key={shift.id}
+                variant="outlined"
+                sx={{
+                  borderRadius: 3,
+                  borderColor: "rgba(195, 198, 214, 0.5)",
+                  backgroundColor: "#ffffff",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.01)",
+                  "&:hover": { backgroundColor: "#F0F7FF" },
+                  transition: "background-color 0.2s",
+                }}
+              >
+                <CardContent sx={{ p: "20px !important" }}>
+                  <Stack
+                    direction="row"
+                    sx={{
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <Stack
                       direction="row"
-                      sx={{
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
+                      sx={{ alignItems: "center", gap: 2 }}
                     >
-                      <Stack
-                        direction="row"
-                        sx={{ alignItems: "center", gap: 2 }}
-                      >
-                        <Box
-                          sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 1.5,
-                            backgroundColor: "rgba(0, 61, 155, 0.05)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#003d9b",
-                          }}
-                        >
-                          <AccessTimeOutlined fontSize="small" />
-                        </Box>
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 700, color: "text.primary" }}
-                        >
-                          {shift.name}
-                        </Typography>
-                      </Stack>
-
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenModal(shift)}
+                      <Box
                         sx={{
-                          color: "text.secondary",
-                          "&:hover": {
-                            backgroundColor: "#e1e2e4",
-                            color: "text.primary",
-                          },
+                          width: 36,
+                          height: 36,
+                          borderRadius: 1.5,
+                          backgroundColor: "rgba(0, 61, 155, 0.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#003d9b",
                         }}
                       >
-                        <EditOutlined fontSize="small" />
-                      </IconButton>
+                        <AccessTimeOutlined fontSize="small" />
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 700, color: "text.primary" }}
+                      >
+                        {shift.name}
+                      </Typography>
                     </Stack>
 
-                    <Divider
-                      sx={{ my: 2, borderColor: "rgba(195, 198, 214, 0.3)" }}
-                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenModal(shift)}
+                      sx={{
+                        color: "text.secondary",
+                        "&:hover": {
+                          backgroundColor: "#e1e2e4",
+                          color: "text.primary",
+                        },
+                      }}
+                    >
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </Stack>
 
-                    {/* Shift Parameter Metadata Segment Metrics */}
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: "10px",
-                            fontWeight: 700,
-                            color: "text.disabled",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          Schedules Window
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: "text.primary",
-                            fontWeight: 600,
-                            mt: 0.5,
-                          }}
-                        >
-                          {formatTimeDisplay(shift.start_time)} –{" "}
-                          {formatTimeDisplay(shift.end_time)}
-                        </Typography>
-                      </Grid>
+                  <Divider
+                    sx={{ my: 2, borderColor: "rgba(195, 198, 214, 0.3)" }}
+                  />
 
-                      <Grid size={{ xs: 6 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: "10px",
-                            fontWeight: 700,
-                            color: "text.disabled",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          Grace Window
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: "text.secondary",
-                            fontWeight: 600,
-                            mt: 0.5,
-                          }}
-                        >
-                          {shift.grace_period_minutes} Mins
-                        </Typography>
-                      </Grid>
-
-                      <Grid size={{ xs: 6 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: "10px",
-                            fontWeight: 700,
-                            color: "text.disabled",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          Status
-                        </Typography>
-                        <Box sx={{ mt: 0.5 }}>
-                          <Chip
-                            label={shift.is_active ? "Active" : "Inactive"}
-                            size="small"
-                            sx={{
-                              backgroundColor: shift.is_active
-                                ? "rgba(21, 128, 61, 0.1)"
-                                : "rgba(115, 118, 133, 0.1)",
-                              color: shift.is_active ? "#15803d" : "#737685",
-                              fontWeight: 700,
-                              px: 1,
-                              height: 24,
-                              fontSize: "0.75rem",
-                            }}
-                          />
-                        </Box>
-                      </Grid>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Schedules Window
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "text.primary", fontWeight: 600, mt: 0.5 }}
+                      >
+                        {formatTimeDisplay(shift.start_time)} –{" "}
+                        {formatTimeDisplay(shift.end_time)}
+                      </Typography>
                     </Grid>
-                  </CardContent>
-                </Card>
-              );
-            })
+
+                    {/* 🚀 NEW GRID SEGMENT: Working Days */}
+                    <Grid size={{ xs: 12 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Working Days
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "text.primary", fontWeight: 500, mt: 0.5 }}
+                      >
+                        {formatWorkingDays(shift.working_days)}
+                      </Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 6 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Grace Window
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          fontWeight: 600,
+                          mt: 0.5,
+                        }}
+                      >
+                        {shift.grace_period_minutes} Mins
+                      </Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 6 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "text.disabled",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        Status
+                      </Typography>
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip
+                          label={shift.is_active ? "Active" : "Inactive"}
+                          size="small"
+                          sx={{
+                            backgroundColor: shift.is_active
+                              ? "rgba(21, 128, 61, 0.1)"
+                              : "rgba(115, 118, 133, 0.1)",
+                            color: shift.is_active ? "#15803d" : "#737685",
+                            fontWeight: 700,
+                            px: 1,
+                            height: 24,
+                            fontSize: "0.75rem",
+                          }}
+                        />
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            ))
           )}
         </Stack>
 
@@ -625,7 +686,7 @@ export default function ShiftsPage() {
               }}
             >
               <Stack spacing={3} sx={{ p: 0.5 }}>
-                {/* 1. Shift Name Selector (Matches min=2, max=50 bounds) */}
+                {/* 1. Shift Name Selector */}
                 <Controller
                   name="name"
                   control={control}
@@ -676,7 +737,7 @@ export default function ShiftsPage() {
                         helperText={error?.message}
                         slotProps={{
                           input: { sx: inputStyles },
-                          inputLabel: { shrink: true }, // <-- This is the correct MUI v6 slot configuration property!
+                          inputLabel: { shrink: true },
                         }}
                       />
                     )}
@@ -700,14 +761,99 @@ export default function ShiftsPage() {
                         helperText={error?.message}
                         slotProps={{
                           input: { sx: inputStyles },
-                          inputLabel: { shrink: true }, // <-- This is the correct MUI v6 slot configuration property!
+                          inputLabel: { shrink: true },
                         }}
                       />
                     )}
                   />
                 </Stack>
 
-                {/* 4. Numerical Grace Window Input (Enforcing ge=0 bounds) */}
+                {/* 🚀 4. NEW MULTI-SELECT: Working Days Assignment */}
+                <Controller
+                  name="working_days"
+                  control={control}
+                  rules={{
+                    validate: (value) =>
+                      (value && value.length > 0) ||
+                      "Please select at least one working day",
+                  }}
+                  render={({ field, fieldState: { error } }) => (
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          display: "block",
+                          mb: 0.5,
+                          fontWeight: 500,
+                        }}
+                      >
+                        Active Working Days *
+                      </Typography>
+                      <Select
+                        {...field}
+                        multiple
+                        fullWidth
+                        displayEmpty
+                        input={
+                          <OutlinedInput error={!!error} sx={inputStyles} />
+                        }
+                        renderValue={(selected) => {
+                          const ids = selected as number[];
+                          if (ids.length === 0)
+                            return (
+                              <Typography
+                                variant="body2"
+                                sx={{ color: "text.disabled" }}
+                              >
+                                Select active days...
+                              </Typography>
+                            );
+                          return formatWorkingDays(ids);
+                        }}
+                      >
+                        {WEEKDAY_OPTIONS.map((option) => (
+                          <MenuItem
+                            key={option.value}
+                            value={option.value}
+                            sx={{ py: 0.75 }}
+                          >
+                            <Checkbox
+                              checked={field.value.indexOf(option.value) > -1}
+                              sx={{
+                                color: "#003d9b",
+                                "&.Mui-checked": { color: "#003d9b" },
+                              }}
+                            />
+                            <ListItemText
+                              primary={option.label}
+                              slotProps={{
+                                primary: {
+                                  sx: { fontSize: "0.875rem", fontWeight: 500 },
+                                },
+                              }}
+                            />
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {error && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "#d32f2f",
+                            mt: "4px",
+                            ml: "14px",
+                            display: "block",
+                          }}
+                        >
+                          {error.message}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                />
+
+                {/* 5. Numerical Grace Window Input */}
                 <Controller
                   name="grace_period_minutes"
                   control={control}
@@ -739,7 +885,7 @@ export default function ShiftsPage() {
                   )}
                 />
 
-                {/* 5. Active Profile Status Monitor Toggle */}
+                {/* 6. Active Profile Status Monitor Toggle */}
                 <Card
                   variant="outlined"
                   sx={{
@@ -756,8 +902,7 @@ export default function ShiftsPage() {
                       Active Configuration Status
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Toggle active to make this scheduling block selectable on
-                      employment assignments
+                      Toggle active to make this scheduling block selectable
                     </Typography>
                   </Box>
                   <Controller

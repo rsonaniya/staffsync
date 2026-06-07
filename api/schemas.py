@@ -95,6 +95,13 @@ class UserResponse(BaseModel):
     # leave_balances: Optional[list["UserLeaveBalanceResponse"]]
 
 
+class UserResponseVerifyToken(UserResponse):
+    employment_details: Optional["UserEmploymentDetailsResponse"]
+    payroll_details: Optional["UserPayrollAndBankResponse"]
+    documents: Optional[list["UserDocumentInternal"]]
+    leave_balances: Optional[list["UserLeaveBalanceResponse"]]
+
+
 class LeaveTypeCreateRequest(BaseModel):
     name: str = Field(
         ..., min_length=5, max_length=50, description="Leave Name (e.g.,'Sick Leave')"

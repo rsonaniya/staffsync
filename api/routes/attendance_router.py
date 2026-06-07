@@ -23,7 +23,7 @@ from schemas import (
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
 
-@router.post("/toggle", response_model=AttendanceDayResponse)
+@router.post("/toggle", response_model=TodayAttendanceResponse)
 def toggle_attendance(
     request: Request,
     payload: AttendanceToggleRequest,
@@ -73,7 +73,14 @@ def toggle_attendance(
         db.add(new_session)
         db.commit()
         db.refresh(new_session)
-        return attendance
+        # return attendance
+        return {
+            "applicable_date": today_local,
+            "day_type": attendance.status,
+            "is_clocked_in": True,
+            "total_working_hours": attendance.total_working_hours,
+            "current_session_start": new_session.clock_in,
+        }
     open_session = get_db_open_session_for_attendance(attendance.id, db)
     if open_session:
         open_session.clock_out = now_utc
@@ -93,7 +100,14 @@ def toggle_attendance(
 
         db.commit()
         db.refresh(attendance)
-        return attendance
+        # return attendance
+        return {
+            "applicable_date": today_local,
+            "day_type": attendance.status,
+            "is_clocked_in": False,  # They just clocked out
+            "total_working_hours": attendance.total_working_hours,
+            "current_session_start": None,  # Session is closed
+        }
     else:
         attendance.status = AttendanceStatusEnum.PRESENT
         new_session = AttendanceSessionModel(
@@ -105,7 +119,14 @@ def toggle_attendance(
         db.add(new_session)
         db.commit()
         db.refresh(new_session)
-        return attendance
+        # return attendance
+        return {
+            "applicable_date": today_local,
+            "day_type": attendance.status,
+            "is_clocked_in": True,
+            "total_working_hours": attendance.total_working_hours,
+            "current_session_start": new_session.clock_in,
+        }
 
 
 @router.get("/today", response_model=TodayAttendanceResponse)

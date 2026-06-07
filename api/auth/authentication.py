@@ -6,7 +6,7 @@ from auth.oauth2 import create_access_token, get_current_user
 from db.database import get_db
 from db.hash_password import HashPassword
 from db.models import AccountStatus, UserModel
-from schemas import UserResponse
+from schemas import UserResponse, UserResponseVerifyToken
 
 router = APIRouter(tags=["Authentication"])
 
@@ -47,7 +47,7 @@ def get_token(
     }  # returning as of now, will return relevant user details later
 
 
-@router.get("/auth/me", response_model=UserResponse)
+@router.get("/auth/me", response_model=UserResponseVerifyToken)
 def verify_token_and_get_user(current_user=Depends(get_current_user)):
     if current_user.account_status != AccountStatus.ACTIVE:
         raise HTTPException(
