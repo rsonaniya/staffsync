@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import or_
-
 from db.database import SessionLocal
 from db.db_attendance import is_db_user_holiday
 from db.models import (
@@ -10,7 +8,6 @@ from db.models import (
     AttendanceModel,
     AttendanceSessionModel,
     AttendanceStatusEnum,
-    HolidayModel,
     ShiftModel,
     UserEmploymentDetailsModel,
     UserModel,
@@ -22,29 +19,22 @@ def run_nightly_attendance_reconciliation():
     try:
         now_utc = datetime.now(timezone.utc)
         print(f"---Running Hourly Attendance Sweep at {now_utc} UTC---")
-        open_sesions = (
-            db.query(AttendanceSessionModel)
-            .filter(AttendanceSessionModel.clock_out == None)
-            .all()
-        )
-        for session in open_sesions:
-            session.clock_out = now_utc
-            parent_attendance = session.attendance
-            parent_attendance.status = AttendanceStatusEnum.ABSENT
-        db.commit()
         active_users = (
             db.query(UserModel)
             .filter(UserModel.account_status == AccountStatus.ACTIVE)
             .all()
         )
+
         for user in active_users:
             user_tz_str = user.timezone or "UTC"
             user_zone = ZoneInfo(user_tz_str)
             now_local = now_utc.astimezone(user_zone)
             if now_local.hour != 23:
                 continue
+
             target_date = now_local.date()
             target_weekday = now_local.weekday()
+
             attendance_today = (
                 db.query(AttendanceModel)
                 .filter(
@@ -53,6 +43,19 @@ def run_nightly_attendance_reconciliation():
                 )
                 .first()
             )
+
+            if attendance_today:
+                open_sessions = (
+                    db.query(AttendanceSessionModel)
+                    .filter(
+                        AttendanceSessionModel.attendance_id == attendance_today.id,
+                        AttendanceSessionModel.clock_out == None,
+                    )
+                    .all()
+                )
+                for session in open_sessions:
+                    session.clock_out = now_utc
+                    attendance_today.status = AttendanceStatusEnum.ABSENT
             if not attendance_today:
                 emp_details = (
                     db.query(UserEmploymentDetailsModel)
@@ -61,12 +64,14 @@ def run_nightly_attendance_reconciliation():
                 )
                 if not emp_details:
                     continue
+
                 shift = (
                     db.query(ShiftModel)
                     .filter(ShiftModel.id == emp_details.shift_id)
                     .first()
                 )
                 final_status = AttendanceStatusEnum.ABSENT
+
                 if shift and (target_weekday not in shift.working_days):
                     final_status = AttendanceStatusEnum.WEEK_OFF
                 else:
@@ -75,6 +80,7 @@ def run_nightly_attendance_reconciliation():
                     )
                     if is_holiday:
                         final_status = AttendanceStatusEnum.HOLIDAY
+
                 missing_attendance = AttendanceModel(
                     user_id=user.id,
                     applicable_date=target_date,
@@ -83,8 +89,9 @@ def run_nightly_attendance_reconciliation():
                     total_working_hours=0.0,
                 )
                 db.add(missing_attendance)
+
         db.commit()
-        print("---Nightly Reconciliation Complete---")
+        print("---Hourly Sweep Complete---")
 
     except Exception as e:
         print(f"CRON ERROR {e}")
