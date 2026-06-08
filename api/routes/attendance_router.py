@@ -1,20 +1,25 @@
-from datetime import datetime, timedelta, timezone
+from calendar import monthrange
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from auth.oauth2 import get_current_user
 from db.database import get_db
 from db.db_attendance import (
+    get_db_all_session_for_attendance,
     get_db_attendance_by_date,
+    get_db_monthly_attendance_status,
     get_db_open_session_for_attendance,
     is_db_user_holiday,
 )
+from db.db_holiday import get_db_holidays_by_year_month_location_id
 from db.db_shift import get_shift_by_id
 from db.db_user import get_db_user_emp_details_by_userid
 from db.models import AttendanceModel, AttendanceSessionModel, AttendanceStatusEnum
 from schemas import (
+    AttendanceCalendarResponse,
     AttendanceDayResponse,
     AttendanceToggleRequest,
     TodayAttendanceResponse,
@@ -171,4 +176,65 @@ def get_today_attendance(db=Depends(get_db), current_user=Depends(get_current_us
         "is_clocked_in": is_clocked_in,
         "total_working_hours": total_working_hours,
         "current_session_start": current_session_start,
+    }
+
+
+@router.get("/calendar", response_model=list[AttendanceCalendarResponse])
+def get_monthaly_attendance(
+    year: int = Query(..., gt=2000, description="Year to fetch attendance for"),
+    month: int = Query(..., ge=1, le=12, description="Month number (1-12)"),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    db_records = get_db_monthly_attendance_status(db, current_user.id, year, month)
+    records_dict = {record.applicable_date: record.status for record in db_records}
+    emp_details = get_db_user_emp_details_by_userid(current_user.id, db)
+    shift = get_shift_by_id(emp_details.shift_id, db)
+    holidays = get_db_holidays_by_year_month_location_id(
+        year, month, emp_details.location_id, db
+    )
+    holiday_dict = {h.applicable_date: True for h in holidays}
+    _, last_day = monthrange(year, month)
+    calender_response = []
+    for day in range(1, last_day + 1):
+        current_date = date(year, month, day)
+        if current_date in records_dict:
+            calender_response.append(
+                {"applicable_date": current_date, "status": records_dict[current_date]}
+            )
+        elif current_date in holiday_dict:
+            calender_response.append(
+                {
+                    "applicable_date": current_date,
+                    "status": AttendanceStatusEnum.HOLIDAY,
+                }
+            )
+        elif current_date.weekday() not in shift.working_days:
+            calender_response.append(
+                {
+                    "applicable_date": current_date,
+                    "status": AttendanceStatusEnum.WEEK_OFF,
+                }
+            )
+    return calender_response
+
+
+@router.get("/detail/{applicable_date}", response_model=AttendanceDayResponse)
+def get_attendance_by_day(
+    applicable_date: date, db=Depends(get_db), current_user=Depends(get_current_user)
+):
+    attendance = get_db_attendance_by_date(current_user.id, applicable_date, db)
+    if not attendance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No attendance record exists for this date.",
+        )
+    sessions = get_db_all_session_for_attendance(attendance.id, db)
+    return {
+        "id": attendance.id,
+        "applicable_date": applicable_date,
+        "status": attendance.status,
+        "is_late": attendance.is_late,
+        "total_working_hours": attendance.total_working_hours,
+        "sessions": sessions,
     }

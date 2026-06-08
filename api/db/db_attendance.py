@@ -1,4 +1,4 @@
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session
 from datetime import date
 
@@ -42,4 +42,26 @@ def is_db_user_holiday(db: Session, target_date: date, location_id: int):
             ),
         )
         .first()
+    )
+
+
+def get_db_monthly_attendance_status(
+    db: Session, target_user_id: int, year: int, month: int
+):
+    return (
+        db.query(AttendanceModel)
+        .filter(
+            AttendanceModel.user_id == target_user_id,
+            extract("month", AttendanceModel.applicable_date) == month,
+            extract("year", AttendanceModel.applicable_date) == year,
+        )
+        .all()
+    )
+
+
+def get_db_all_session_for_attendance(attendance_id: int, db: Session):
+    return (
+        db.query(AttendanceSessionModel)
+        .filter(AttendanceSessionModel.attendance_id == attendance_id)
+        .all()
     )

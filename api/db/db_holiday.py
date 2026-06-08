@@ -75,3 +75,20 @@ def get_db_all_holidays_by_location_id(location_id: int, db: Session):
         .order_by(HolidayModel.applicable_date.asc())
         .all()
     )
+
+
+def get_db_holidays_by_year_month_location_id(
+    year: int, month: int, location_id: int, db: Session
+):
+    return (
+        db.query(HolidayModel)
+        .filter(
+            extract("year", HolidayModel.applicable_date) == year,
+            extract("month", HolidayModel.applicable_date) == month,
+            or_(
+                HolidayModel.locations.any(id=location_id),
+                ~HolidayModel.locations.any(),
+            ),
+        )
+        .all()
+    )
