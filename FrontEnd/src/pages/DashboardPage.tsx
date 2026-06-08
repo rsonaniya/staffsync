@@ -11,16 +11,20 @@ import {
   Link,
   LinearProgress,
   CircularProgress,
+  Dialog,
+  DialogActions,
 } from "@mui/material";
 import {
   FlightTakeoff,
   MedicalServicesOutlined,
   LocalCafeOutlined,
   Circle,
+  WarningAmberRounded,
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { axiosInstance } from "../api/axiosInstance";
+import type { AttendanceStatus } from "../types/enums";
 
 // --- Dummy Data ---
 const LEAVE_BALANCES = [
@@ -62,7 +66,7 @@ const WEEKLY_ATTENDANCE = [
 
 interface AttendanceData {
   applicable_date: string;
-  day_type: string;
+  day_type: AttendanceStatus;
   is_clocked_in: boolean;
   total_working_hours: number;
   current_session_start: string | null;
@@ -80,6 +84,14 @@ export default function DashboardPage() {
 
   // Real-time tracker for the active session (in milliseconds)
   const [liveSessionMs, setLiveSessionMs] = useState<number>(0);
+
+  const [warningModal, setWarningModal] = useState<{
+    open: boolean;
+    message: string;
+  }>({
+    open: false,
+    message: "",
+  });
 
   // 1. Fetch initial status on mount
   useEffect(() => {
@@ -116,14 +128,31 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [attendanceData]);
 
-  // 3. Toggle Action
   const handleToggleClock = async () => {
+    // If clocking in, check if status is a non-working day
+    if (!isClockedIn) {
+      const status = attendanceData?.day_type;
+      const nonWorkingStatuses = ["ON_LEAVE", "HOLIDAY", "WEEK_OFF"];
+
+      if (status && nonWorkingStatuses.includes(status)) {
+        setWarningModal({
+          open: true,
+          message: `Today is a scheduled ${status.replace("_", " ").toLowerCase()}. You are not expected to work. Do you still want to clock in?`,
+        });
+        return; // Stop here, wait for modal confirmation
+      }
+    }
+
+    // Proceed if not blocked
+    executeClockAction();
+  };
+
+  const executeClockAction = async () => {
     setIsToggling(true);
+    setWarningModal({ open: false, message: "" }); // Close modal if open
     try {
-      const response = await axiosInstance.post<AttendanceData>(
-        "/attendance/toggle",
-        { data: {} },
-      );
+      const response =
+        await axiosInstance.post<AttendanceData>("/attendance/toggle");
       setAttendanceData(response.data);
       showToast(
         response.data.is_clocked_in
@@ -132,9 +161,8 @@ export default function DashboardPage() {
         "success",
       );
     } catch (error: any) {
-      console.error("Clock toggle failed:", error);
       showToast(
-        error.response?.data?.detail || "Failed to process time clock punch.",
+        error.response?.data?.detail || "Failed to process clock action.",
         "error",
       );
     } finally {
@@ -590,6 +618,73 @@ export default function DashboardPage() {
           </Stack>
         </Box>
       </Box>
+      <Dialog
+        open={warningModal.open}
+        onClose={() => setWarningModal({ open: false, message: "" })}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 3, p: 1 } } }}
+      >
+        <Box sx={{ p: 2, display: "flex", gap: 2, alignItems: "flex-start" }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              backgroundColor: "rgba(245, 158, 11, 0.1)", // Amber warning color
+              color: "#d97706",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <WarningAmberRounded />
+          </Box>
+          <Box>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}
+            >
+              Non-Working Day
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ lineHeight: 1.5 }}
+            >
+              {warningModal.message}
+            </Typography>
+          </Box>
+        </Box>
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1, gap: 1 }}>
+          <Button
+            onClick={() => setWarningModal({ open: false, message: "" })}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: "text.secondary",
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={executeClockAction}
+            variant="contained"
+            disableElevation
+            sx={{
+              backgroundColor: "#d97706",
+              color: "#ffffff",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 3,
+              "&:hover": { backgroundColor: "#b45309" },
+            }}
+          >
+            Confirm Clock In
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

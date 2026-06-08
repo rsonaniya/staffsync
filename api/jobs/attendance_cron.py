@@ -21,7 +21,7 @@ def run_nightly_attendance_reconciliation():
     db = SessionLocal()
     try:
         now_utc = datetime.now(timezone.utc)
-        print(f"---Starting Nightly Attendance Reconciliation at {now_utc} UTC---")
+        print(f"---Running Hourly Attendance Sweep at {now_utc} UTC---")
         open_sesions = (
             db.query(AttendanceSessionModel)
             .filter(AttendanceSessionModel.clock_out == None)
@@ -41,6 +41,8 @@ def run_nightly_attendance_reconciliation():
             user_tz_str = user.timezone or "UTC"
             user_zone = ZoneInfo(user_tz_str)
             now_local = now_utc.astimezone(user_zone)
+            if now_local.hour != 23:
+                continue
             target_date = now_local.date()
             target_weekday = now_local.weekday()
             attendance_today = (

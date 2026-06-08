@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     print("cloudinary SDK Initialized")
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(run_nightly_attendance_reconciliation, "cron", hour=23, minute=59)
+    scheduler.add_job(run_nightly_attendance_reconciliation, "cron", minute=50)
     scheduler.start()
     print("background scheduler started")
     yield
