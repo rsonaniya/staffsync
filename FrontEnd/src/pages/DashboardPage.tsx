@@ -151,8 +151,10 @@ export default function DashboardPage() {
     setIsToggling(true);
     setWarningModal({ open: false, message: "" }); // Close modal if open
     try {
-      const response =
-        await axiosInstance.post<AttendanceData>("/attendance/toggle");
+      const response = await axiosInstance.post<AttendanceData>(
+        "/attendance/toggle",
+        {},
+      );
       setAttendanceData(response.data);
       showToast(
         response.data.is_clocked_in
